@@ -393,7 +393,7 @@ void engines::updateEngines( bool addAll,int id )
 
 	if( addAll ){
 
-		if( utility::platformIsWindows() ){
+		if( utility::platformIsLikeWindows() ){ //OS2
 
 			this->engineAdd( "",{ *this,m_logger,"bsdtar","--version",0,1,id },id ) ;
 		}else{
@@ -554,7 +554,7 @@ QString engines::findExecutable( const QString& exeName,const QStringList& paths
 
 QString engines::findExecutable( const QString& exeName ) const
 {
-	if( utility::platformIsWindows() && exeName == "media-downloader.exe" ){
+	if( utility::platformIsLikeWindows() && exeName == "media-downloader.exe" ){
 
 		return utility::windowsApplicationDirPath() + "/media-downloader.exe" ;
 	}
@@ -1214,7 +1214,7 @@ engines::enginePaths::enginePaths( settings& s )
 
 QString engines::enginePaths::socketPath()
 {
-	if( utility::platformIsWindows() ){
+	if( utility::platformIsLikeWindows() ){
 
 		return "\\\\.\\pipe\\MediaDownloaderIPC" ;
 	}else{
