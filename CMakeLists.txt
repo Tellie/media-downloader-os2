@@ -136,6 +136,14 @@ else()
     endif()
 endif()
 
+if(OS2)
+set_target_properties(media-downloader PROPERTIES
+ OS2_DEF_VENDOR "TeLLie OS2 forever"
+ OS2_DEF_PATCH "${media-downloader_VERSION_PATCH}"
+ OS2_DEF_VERSION "${MEDIA-DOWNLOADER_VERSION}"
+ OS2_DEF_EXEType "WINDOWAPI")
+endif()
+
 if(BUILD_WITH_QT6)
     if(WIN32)
         target_link_libraries(media-downloader Advapi32.lib Dwmapi.lib Iphlpapi.lib Qt6::Widgets Qt6::Core Qt6::Network)
