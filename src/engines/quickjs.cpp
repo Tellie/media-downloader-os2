@@ -75,56 +75,37 @@ quickjs::~quickjs()
 {
 }
 
+QString quickjs::namePrefix()
+{
+	QString platform = utility::platformIsWindows() ? "win" : "linux" ;
+	QString arch     = utility::CPU().x86_32() ? "-i686" : "-x86_64" ;
+
+	return "quickjs-" + platform + arch ;
+}
+
 engines::metadata quickjs::parseJsonDataFromGitHub( const QJsonDocument& e )
 {
 	auto version = e.object().value( "version" ).toString() ;
 
-	if( version.isEmpty() ){
+	if( !version.isEmpty() && ( utility::platformIsLinux() || utility::platformIsWindows() ) ){
 
-		return {} ;
-	}else{
-		QString fileName ;
-		QString url ;
-
-		if( utility::platformIsWindows() ){
-
-			if( utility::CPU().x86_32() ){
-
-				fileName = "quickjs-win-i686-%1.zip" ;
-
-				url = "https://bellard.org/quickjs/binary_releases/" ;
-			}else{
-				fileName = "quickjs-win-x86_64-%1.zip" ;
-
-				url = "https://bellard.org/quickjs/binary_releases/" ;
-			}
-		}else{
-			if( utility::CPU().x86_32() ){
-
-				fileName = "quickjs-linux-x86_64-%1.zip" ;
-
-				url = "https://bellard.org/quickjs/binary_releases/" ;
-			}else{
-				fileName = "quickjs-linux-x86_64-%1.zip" ;
-
-				url = "https://bellard.org/quickjs/binary_releases/" ;
-			}
-		}
+		auto fileName = QString( "%1-%2.zip" ).arg( this->namePrefix(),version ) ;
+		auto url      = "https://bellard.org/quickjs/binary_releases/" + fileName ;
 
 		QJsonObject obj ;
 
-		fileName = fileName.arg( version ) ;
-		obj.insert( "browser_download_url",url + fileName ) ;
+		obj.insert( "browser_download_url",url ) ;
 		obj.insert( "name",fileName ) ;
 		obj.insert( "digest","" ) ;
 		obj.insert( "size",0 ) ;
 
 		return obj ;
+	}else{
+		return {} ;
 	}
 }
 
-std::vector< engines::engine::baseEngine::removeFilesStatus >
-quickjs::removeFiles( const QStringList& e,const QString& a )
+engines::engine::baseEngine::removeFilesStatus quickjs::removeFiles( const QStringList& e,const QString& a )
 {
 	auto m = e ;
 
@@ -142,32 +123,7 @@ quickjs::removeFiles( const QStringList& e,const QString& a )
 
 bool quickjs::foundNetworkUrl( const QString& s )
 {
-	utility::CPU cpu ;
-
-	if( utility::platformIsWindows() ){
-
-		if( cpu.x86_64() ){
-
-			return s.startsWith( "quickjs-win-i686" ) && s.endsWith( ".zip" ) ;
-
-		}else if( cpu.x86_32() ){
-
-			return s.startsWith( "quickjs-win-x86_64" ) && s.endsWith( ".zip" ) ;
-		}
-
-	}else if( utility::platformIsLinux() ){
-
-		if( cpu.x86_64() ){
-
-			return s.startsWith( "quickjs-linux-x86_64" ) && s.endsWith( ".zip" ) ;
-
-		}else if( cpu.x86_32() ){
-
-			return s.startsWith( "quickjs-linux-i686" ) && s.endsWith( ".zip" ) ;
-		}
-	}
-
-	return false ;
+	return s.startsWith( this->namePrefix() ) && s.endsWith( ".zip" ) ;
 }
 
 QString quickjs::parseVersionInfo( const utils::qprocess::outPut& r )
@@ -189,4 +145,13 @@ QString quickjs::parseVersionInfo( const utils::qprocess::outPut& r )
 quickjs::quickjs( const engines& e,const engines::engine& s,QJsonObject& ) :
 	engines::engine::baseEngine( e.Settings(),s,e.processEnvironment() )
 {
+	if( utility::platformisFlatPak() ){
+
+		auto path = e.Settings().flatpakIntance().appDataLocation() + "/bin/qjs";
+
+		if( QFile::exists( path ) ){
+
+			QFile::remove( path ) ;
+		}
+	}
 }

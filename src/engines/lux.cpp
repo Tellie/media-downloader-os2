@@ -101,10 +101,10 @@ lux::~lux()
 {
 }
 
-lux::lux( const engines& engines,const engines::engine& engine,QJsonObject&,const QString& df ) :
+lux::lux( const engines& engines,const engines::engine& engine,QJsonObject& ) :
 	engines::engine::baseEngine( engines.Settings(),engine,engines.processEnvironment() ),
 	m_engine( engine ),
-	m_downloadFolder( df + "/" )
+	m_downloadFolder( engines.Settings().downloadFolder() + "/" )
 {
 }
 
@@ -113,9 +113,9 @@ engines::engine::baseEngine::DataFilter lux::Filter( int id )
 	return { util::types::type_identity< lux::lux_dlFilter >(),m_engine,id,m_downloadFolder.toUtf8() } ;
 }
 
-engines::engine::baseEngine::optionsEnvironment lux::setProxySetting( QStringList&,const QString& e )
+void lux::setProxySetting( engines::engine::baseEngine::optionsEnvironment& s,QStringList&,const QString& e )
 {
-	return { "HTTPS_PROXY",e } ;
+	s.add( "HTTPS_PROXY",e ) ;
 }
 
 std::vector<engines::engine::baseEngine::mediaInfo> lux::mediaProperties( Logger& l,const QByteArray& e )
@@ -259,16 +259,6 @@ void lux::updateDownLoadCmdOptions( const engines::engine::baseEngine::updateOpt
 	}
 }
 
-static bool _meetCondition( const engines::engine&,const QByteArray& e )
-{
-	return e.contains( "] " ) && e.contains( " p/s " ) ;
-}
-
-static bool _meetLocalCondition( const engines::engine&,const QByteArray& e )
-{
-	return e.contains( ", ETA: " ) ;
-}
-
 class LuxHeader
 {
 public:
@@ -374,7 +364,9 @@ using Output = engines::engine::baseEngine::filterOutPut ;
 class luxFilter : public engines::engine::baseEngine::filterOutPut
 {
 public:
-	luxFilter( const engines::engine& engine ) : m_engine( engine )
+	luxFilter( const engines::engine& engine ) :
+		m_engine( engine ),
+		m_callables( luxFilter::meetLocalCondition,luxFilter::skipCondition )
 	{
 	}
 	Output::result formatOutput( const Output::args& args ) const override
@@ -387,7 +379,7 @@ public:
 
 			return this->formatOutput( args,data,m ) ;
 		}else{
-			return { args.outPut,m_engine,_meetLocalCondition } ;
+			return { args.outPut,m_engine,m_callables } ;
 		}
 	}
 	Output::result formatOutput( int mm,
@@ -436,13 +428,13 @@ public:
 				m_tmp = m_tmp + "\n" + e.mid( mm ) ;
 			}
 
-			return { m_tmp,m_engine,_meetLocalCondition } ;
+			return { m_tmp,m_engine,m_callables } ;
 		}else{
 			QString s = "?" ;
 
 			m_tmp = pgr.arg( s,s,s,s,s ).toUtf8() ;
 
-			return { m_tmp,m_engine,_meetLocalCondition } ;
+			return { m_tmp,m_engine,m_callables } ;
 		}
 	}
 	Output::result formatOutput( const Output::args& args,const QByteArray& allData,int m ) const
@@ -461,7 +453,7 @@ public:
 
 		if( mm == -1 ){
 
-			return { args.outPut,m_engine,_meetLocalCondition } ;
+			return { args.outPut,m_engine,m_callables } ;
 		}
 
 		auto ss = allData.mid( mm + 2 ).replace( "p/s","" ) ;
@@ -480,25 +472,35 @@ public:
 
 			m_tmp = pgr.arg( s,s,s,s,s ).toUtf8() ;
 
-			return { m_tmp,m_engine,_meetLocalCondition } ;
+			return { m_tmp,m_engine,m_callables } ;
 		}else{
-			return { args.outPut,m_engine,_meetLocalCondition } ;
+			return { args.outPut,m_engine,m_callables } ;
 		}
 	}
 	bool meetCondition( const engines::engine::baseEngine::filterOutPut::args& args ) const override
 	{
-		return _meetCondition( m_engine,args.outPut ) ;
+		const auto& e = args.outPut ;
+		return e.contains( "] " ) && e.contains( " p/s " ) ;
 	}
 	const engines::engine& engine() const override
 	{
 		return m_engine ;
 	}
-private:
+private:	
+	static bool meetLocalCondition( const engines::engine&,const QByteArray& e )
+	{
+		return e.contains( ", ETA: " ) ;
+	}
+	static bool skipCondition( const engines::engine&,const QByteArray& )
+	{
+		return false ;
+	}
 	const engines::engine& m_engine ;
 	mutable QByteArray m_tmp ;
+	engines::engine::baseEngine::filterOutPut::result::callables m_callables ;
 } ;
 
-engines::engine::baseEngine::FilterOutPut lux::filterOutput()
+engines::engine::baseEngine::FilterOutPut lux::filterOutput( int )
 {
 	const engines::engine& engine = engines::engine::baseEngine::engine() ;
 

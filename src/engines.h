@@ -520,8 +520,9 @@ public:
 				class meetCondition
 				{
 				public:
-					meetCondition( bool( *m )( const engines::engine&,const QByteArray& ),
-						       const engines::engine& engine ) :
+					meetCondition( bool( *m )( const engines::engine&,
+								   const QByteArray& ),
+								   const engines::engine& engine ) :
 						m_function( m ),m_engine( engine )
 					{
 					}
@@ -536,23 +537,49 @@ public:
 				class result
 				{
 				public:
-					result( const QByteArray& p,
-						const engines::engine& e,
-						bool( *m )( const engines::engine&,const QByteArray& ) ) :
-						m_progress( p ),m_meetCondition( m,e )
+					class callables
+					{
+					public:
+						using type = bool( * )( const engines::engine&,const QByteArray& ) ;
+
+						callables( type m,type s ) :
+							m_meetCondition( m ),m_skipCondition( s )
+						{
+						}
+						type meetCondition() const
+						{
+							return m_meetCondition ;
+						}
+						type skipCondition() const
+						{
+							return m_skipCondition ;
+						}
+					private:
+						bool( *m_meetCondition )( const engines::engine&,const QByteArray& ) ;
+						bool( *m_skipCondition )( const engines::engine&,const QByteArray& ) ;
+					} ;
+					result( const QByteArray& p,const engines::engine& e,const callables& m ) :
+						m_progress( p ),
+						m_meetCondition( m.meetCondition(),e ),
+						m_skipCondition( m.skipCondition(),e )
 					{
 					}
-					const QByteArray& progress()
+					const QByteArray& progress() const
 					{
 						return m_progress ;
 					}
-					const filterOutPut::meetCondition& meetCondition()
+					const filterOutPut::meetCondition& meetCondition() const
 					{
 						return m_meetCondition ;
+					}
+					const filterOutPut::meetCondition& skipCondition() const
+					{
+						return m_skipCondition ;
 					}
 				private:
 					const QByteArray& m_progress ;
 					filterOutPut::meetCondition m_meetCondition ;
+					filterOutPut::meetCondition m_skipCondition ;
 				} ;
 				virtual result formatOutput( const filterOutPut::args& ) const = 0 ;
 				virtual bool meetCondition( const filterOutPut::args& ) const = 0 ;
@@ -561,6 +588,7 @@ public:
 			} ;
 
 			static bool meetCondition( const engines::engine&,const QByteArray& ) ;
+			static bool skipCondition( const engines::engine&,const QByteArray& ) ;
 
 			class FilterOutPut
 			{
@@ -583,7 +611,7 @@ public:
 				std::unique_ptr< engines::engine::baseEngine::filterOutPut > m_filterOutPut ;
 			};
 
-			virtual FilterOutPut filterOutput() ;
+			virtual FilterOutPut filterOutput( int ) ;
 
 			virtual ~baseEngine() ;
 
@@ -763,28 +791,54 @@ public:
 			class removeFilesStatus
 			{
 			public:
-				removeFilesStatus( QString s,QString e ) :
-					m_src( std::move( s ) ),m_err( std::move( e ) )
+				class pair
 				{
+				public:
+					pair( QString s,QString e ) :
+						m_src( std::move( s ) ),m_err( std::move( e ) )
+					{
+					}
+					const QString& src() const
+					{
+						return m_src ;
+					}
+					const QString& err() const
+					{
+						return m_err ;
+					}
+				private:
+					QString m_src ;
+					QString m_err ;
+				} ;
+				removeFilesStatus( QString s,QString e )
+				{
+					m_entries.emplace_back( std::move( s ),std::move( e ) ) ;
 				}
 				removeFilesStatus()
 				{
 				}
-				const QString& src() const
+				auto begin() const
 				{
-					return m_src ;
+					return m_entries.begin() ;
 				}
-				const QString& err() const
+				auto end() const
 				{
-					return m_err ;
+					return m_entries.end() ;
+				}
+				auto size() const
+				{
+					return m_entries.size() ;
+				}
+				template< typename ... Args >
+				void add( Args&& ... args )
+				{
+					m_entries.emplace_back( std::forward< Args >( args ) ... ) ;
 				}
 			private:
-				QString m_src ;
-				QString m_err ;
+				std::vector< pair > m_entries ;
 			} ;
 
-			virtual std::vector< engines::engine::baseEngine::removeFilesStatus >
-			removeFiles( const QStringList&,const QString& ) ;
+			virtual engines::engine::baseEngine::removeFilesStatus removeFiles( const QStringList&,const QString& ) ;
 
 			class optionsEnvironment
 			{
@@ -802,8 +856,9 @@ public:
 				}
 				bool isEmpty() const
 				{
-					return m_pairs.size() ;
+					return m_pairs.size() == 0 ;
 				}
+				void update( QString& ) const ;
 				QProcessEnvironment update( const QProcessEnvironment& ) const ;
 			private:
 				struct pair
@@ -817,7 +872,14 @@ public:
 				} ;
 				std::vector< pair > m_pairs ;
 			} ;
-			virtual optionsEnvironment setProxySetting( QStringList&,const QString& ) ;
+
+			virtual bool skipCondition( const QByteArray& ) ;
+
+			virtual bool hasConvertArgToEnv( const QStringList& ) ;
+
+			virtual QStringList convertArgToEnv( engines::engine::baseEngine::optionsEnvironment&,const QStringList& ) ;
+
+			virtual void setProxySetting( engines::engine::baseEngine::optionsEnvironment&,QStringList&,const QString& ) ;
 
 			virtual QString setCredentials( QStringList&,QStringList & ) ;
 
@@ -957,13 +1019,6 @@ public:
 		engine()
 		{
 		}
-		engine( const engines& engines,
-			Logger& logger,
-			const QString& name,
-			const QString& versionArgument,
-			int line,
-			int position,
-			int id ) ;
 
 		engine( Logger& logger,
 			const enginePaths& ePaths,
@@ -1172,6 +1227,10 @@ public:
 
 			e.append( this->extraArguments() ) ;
 		}
+		bool skipCondition( const QByteArray& e ) const
+		{
+			return m_engine->skipCondition( e ) ;
+		}
 		void updateCmdOptions( QStringList& e ) const
 		{
 			m_engine->updateCmdOptions( e ) ;
@@ -1194,9 +1253,9 @@ public:
 		{
 			return m_engine->parseJsonDataFromGitHub( e ) ;
 		}
-		engines::engine::baseEngine::FilterOutPut filterOutput() const
+		engines::engine::baseEngine::FilterOutPut filterOutput( int id ) const
 		{
-			return m_engine->filterOutput() ;
+			return m_engine->filterOutput( id ) ;
 		}
 		bool foundNetworkUrl( const QString& s ) const
 		{
@@ -1206,13 +1265,21 @@ public:
 		{
 			return m_engine->versionInfoFromGithub( e ) ;
 		}
+		bool hasConvertArgToEnv( const QStringList& e ) const
+		{
+			return m_engine->hasConvertArgToEnv( e ) ;
+		}
+		QStringList convertArgToEnv( engines::engine::baseEngine::optionsEnvironment& e,const QStringList& s ) const
+		{
+			return m_engine->convertArgToEnv( e,s ) ;
+		}
 		QString downloadFolder( const QString& e ) const
 		{
 			return m_engine->downloadFolder( e ) ;
 		}
-		engines::engine::baseEngine::optionsEnvironment setProxySetting( QStringList& e,const QString& s ) const
+		void setProxySetting( engines::engine::baseEngine::optionsEnvironment& a,QStringList& e,const QString& s ) const
 		{
-			return m_engine->setProxySetting( e,s ) ;
+			m_engine->setProxySetting( a,e,s ) ;
 		}
 		std::vector< QByteArray > parseJsonData( QByteArray& data ) const
 		{
@@ -1234,7 +1301,7 @@ public:
 		{
 			m_engine->openLocalFile( s ) ;
 		}
-		std::vector< engines::engine::baseEngine::removeFilesStatus > removeFiles( const QStringList& e,const QString& s ) const
+		engines::engine::baseEngine::removeFilesStatus removeFiles( const QStringList& e,const QString& s ) const
 		{
 			return m_engine->removeFiles( e,s ) ;
 		}
@@ -1376,24 +1443,43 @@ public:
 			return m_broken ;
 		}
 	private:
+		QJsonObject getOpts( const util::Json& ) const ;
 		void setPermissions( const QString& ) const ;
 		void updateOptions() ;
 		QStringList toStringList( const QJsonValue&,bool = false ) const ;
-		QJsonObject getCmd( const QJsonObject& ) ;
+		QJsonObject getCmd( const QJsonObject&,const QString& ) ;
 
-		struct cmd
+		class cmd
 		{
-			QString name ;
-			QStringList args ;
-			bool noCheckArgs ;
+		public:
+			cmd( const QJsonObject&,const QString&,const engines::engine& ) ;
+			const QString& commandName() const
+			{
+				return m_commandName ;
+			}
+			const QString& downloadUrl() const
+			{
+				return m_downloadUrl ;
+			}
+			const QStringList& args() const
+			{
+				return m_args ;
+			}
+			bool noCheckArgs() const
+			{
+				return m_args.size() == 1 ;
+			}
+		private:
+			QString m_commandName ;
+			QString m_downloadUrl ;
+			QStringList m_args ;
 		} ;
 
-		engines::engine::cmd getCommands( const QJsonObject& ) ;
-		engines::engine::cmd getLegacyCommands() ;
+		engines::engine::cmd getCommands( const QString&,const QJsonObject& ) ;
 
 		void parseMultipleCmdArgs( Logger& logger,const engines& engines,const enginePaths&,int ) ;
 
-		void parseMultipleCmdArgs( QStringList&,
+		void parseMultipleCmdArgs( QStringList,
 					   const QString&,
 					   Logger& logger,
 					   const enginePaths& ePaths,
@@ -1406,6 +1492,7 @@ public:
 		int m_line ;
 		int m_position ;
 		bool m_valid ;
+		bool m_likeYtDlp ;
 		bool m_autoUpdate ;
 		bool m_canDownloadPlaylist ;
 		bool m_supportingEngine ;
@@ -1415,7 +1502,6 @@ public:
 		QString m_versionArgument ;
 		QString m_name ;
 		QString m_configVersion ;
-		bool m_likeYtDlp ;
 		QString m_commandName ;
 		QString m_userName ;
 		QString m_password ;
@@ -1443,7 +1529,7 @@ public:
 
 		mutable engines::engine::exeArgs m_exePath ;
 	};
-	settings& Settings() const;
+	settings& Settings() const ;
 	QString findExecutable( const QString& exeName ) const ;
 	const QProcessEnvironment& processEnvironment() const ;
 	QString addEngine( const QByteArray& data,const QString& path,int ) ;
@@ -1571,6 +1657,7 @@ public:
 private:
 	void updateEngines( bool,int ) ;
 	util::result< engines::engine > getEngineByPath( const QString& ) const ;
+	util::result< engines::engine > getSupportingEngineByName( const QString& ) const ;
 	util::result_ref< const engines::engine& > getCompleteEngineByPath( const QString& ) const ;
 	void engineAdd( const QString&,util::result< engines::engine >,int ) ;
 	QString findExecutable( const QString&,const QStringList&,QFileInfo& ) const ;

@@ -381,7 +381,7 @@ Exampe 2: ${gateway}:8080</source>
     </message>
     <message>
         <source>Show MetaData In Batch Downloader</source>
-        <translation>Показувати метадані в пакетному завантажувачі</translation>
+        <translation>Показувати метадані в Пакетному завантажувачі</translation>
     </message>
     <message>
         <source>Auto Download Added Entries In Batch Downloader</source>
@@ -1076,31 +1076,31 @@ Exampe 2: ${gateway}:8080</source>
     </message>
     <message>
         <source>Skipping Checking Download Hash</source>
-        <translation type="unfinished"></translation>
+        <translation>Пропущено перевірку хеша завантаження</translation>
     </message>
     <message>
         <source>Ignoring Download Because Hashes Do Not Match</source>
-        <translation type="unfinished"></translation>
+        <translation>Ігнорування завантаження, оскільки хеші не збігаються</translation>
     </message>
     <message>
         <source>Expected &quot;%1&quot; but obtained &quot;%2&quot;</source>
-        <translation type="unfinished"></translation>
+        <translation>Очікувалося &quot;%1&quot;, але отримано &quot;%2&quot;</translation>
     </message>
     <message>
         <source>Failed To Remove</source>
-        <translation type="unfinished"></translation>
+        <translation>Не вдалося видалити</translation>
     </message>
     <message>
         <source>Renaming file to: %1</source>
-        <translation type="unfinished"></translation>
+        <translation>Перейменування файлу на: %1</translation>
     </message>
     <message>
         <source>Skipping Checking Version Info For Engine &quot;%1&quot;</source>
-        <translation type="unfinished"></translation>
+        <translation>Пропуск перевірки відомостей про версію для рушія &quot;%1&quot;</translation>
     </message>
     <message>
         <source>Failed To Find &quot;bsdtar&quot; or &quot;unzip&quot; Executable</source>
-        <translation type="unfinished"></translation>
+        <translation>Не вдалося знайти виконуваний файл &quot;bsdtar&quot; або &quot;unzip&quot;</translation>
     </message>
 </context>
 <context>
@@ -1298,8 +1298,8 @@ Exampe 2: ${gateway}:8080</source>
         <translation>Закрити</translation>
     </message>
     <message>
-        <source>Clear</source>
-        <translation>Очистити</translation>
+        <source>Show All</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>

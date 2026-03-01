@@ -289,25 +289,6 @@ static QJsonObject _defaultControlStructure()
 	return obj ;
 }
 
-static void _arr_imp( QJsonArray& )
-{
-}
-
-template< typename First,typename ... Rest >
-static void _arr_imp( QJsonArray& arr,const First& f,Rest&& ... rest )
-{
-	arr.append( f ) ;
-	_arr_imp( arr,std::forward< Rest >( rest ) ... ) ;
-}
-
-template< typename ... Args >
-static QJsonArray _arr( Args&& ... args )
-{
-	QJsonArray arr ;
-	_arr_imp( arr,std::forward< Args >( args ) ... ) ;
-	return arr ;
-}
-
 QJsonObject yt_dlp::init( const QString& name,
 			  const QString& configFileName,
 			  Logger& logger,
@@ -343,29 +324,31 @@ QJsonObject yt_dlp::init( const QString& name,
 
 	mainObj.insert( "Version","2" ) ;
 
-	mainObj.insert( "ExtraArguments",_arr() ) ;
+	mainObj.insert( "ExtraArguments",utility::QJsonArrayJoin() ) ;
 
-	mainObj.insert( "ExtraArgumentsWin7",_arr( "--no-js-runtimes","--js-runtimes","quickjs" ) ) ;
+	mainObj.insert( "ExtraArgumentsWin7",utility::QJsonArrayJoin( "--no-js-runtimes","--js-runtimes","quickjs" ) ) ;
 
-	auto arr = _arr( "--match-filter","!playlist","--no-playlist","--newline","--print",_jsonFullArguments() ) ;
+	mainObj.insert( "ExtraArgumentsFlatpak",utility::QJsonArrayJoin( "--no-js-runtimes","--js-runtimes","quickjs" ) ) ;
+
+	auto arr = utility::QJsonArrayJoin( "--match-filter","!playlist","--no-playlist","--newline","--print",_jsonFullArguments() ) ;
 
 	mainObj.insert( "DumptJsonArguments",arr ) ;
 
 	mainObj.insert( "DefaultListCmdOptions",arr ) ;
 
-	mainObj.insert( "DefaultCommentsCmdOptions",_arr( "--get-comments","--no-download","--print","{\"title\":%(title)j,\"comments\":%(comments)j}" ) ) ;
+	mainObj.insert( "DefaultCommentsCmdOptions",utility::QJsonArrayJoin( "--get-comments","--no-download","--print","{\"title\":%(title)j,\"comments\":%(comments)j}" ) ) ;
 
-	mainObj.insert( "DefaultSubstitlesCmdOptions",_arr( "--no-download","--print","{\"title\":%(title)j,\"automatic_captions\":%(automatic_captions)j,\"subtitles\":%(subtitles)j}" ) ) ;
+	mainObj.insert( "DefaultSubstitlesCmdOptions",utility::QJsonArrayJoin( "--no-download","--print","{\"title\":%(title)j,\"automatic_captions\":%(automatic_captions)j,\"subtitles\":%(subtitles)j}" ) ) ;
 
-	mainObj.insert( "DefaultSubtitleDownloadOptions",_arr( "--embed-subs" ) ) ;
+	mainObj.insert( "DefaultSubtitleDownloadOptions",utility::QJsonArrayJoin( "--embed-subs" ) ) ;
 
-	mainObj.insert( "DefaultDownLoadCmdOptions",_arr( "--newline","--ignore-config","--no-playlist","-o","%(title).200s-%(id)s.%(ext)s" ) ) ;
+	mainObj.insert( "DefaultDownLoadCmdOptions",utility::QJsonArrayJoin( "--newline","--ignore-config","--no-playlist","-o","%(title).200s-%(id)s.%(ext)s" ) ) ;
 
-	mainObj.insert( "SkipLineWithText",_arr( "(pass -k to keep)" ) ) ;
+	mainObj.insert( "SkipLineWithText",utility::QJsonArrayJoin( "(pass -k to keep)" ) ) ;
 
-	mainObj.insert( "RemoveText",_arr() ) ;
+	mainObj.insert( "RemoveText",utility::QJsonArrayJoin() ) ;
 
-	mainObj.insert( "SplitLinesBy",_arr( "\n" ) ) ;
+	mainObj.insert( "SplitLinesBy",utility::QJsonArrayJoin( "\n" ) ) ;
 
 	mainObj.insert( "DownloadUrl","https://api.github.com/repos/yt-dlp/yt-dlp/releases/latest" ) ;
 
@@ -412,69 +395,14 @@ QJsonObject yt_dlp::init( const QString& name,
 
 yt_dlp::yt_dlp( const engines& engines,
 		const engines::engine& engine,
-		QJsonObject& obj,
-		Logger& logger,
-		const engines::enginePaths& enginePath,
-		settings& s ) :
+		QJsonObject& ) :
 	engines::engine::baseEngine( engines.Settings(),engine,engines.processEnvironment() ),
-	m_engine( engine ),
-	m_settings( &s ),
 	m_processEnvironment( engines::engine::baseEngine::processEnvironment() )
 {
-	auto name = obj.value( "Name" ).toString() ;
-
-	if( name == "yt-dlp" ){
-
-		if( obj.value( "Cmd" ).isUndefined() ){
-
-			auto configFileName = name + ".json" ;
-
-			auto m = enginePath.enginePath( configFileName ) ;
-
-			QFile::remove( m ) ;
-
-			obj = yt_dlp::init( name,configFileName,logger,enginePath ) ;
-		}
-	}
 }
 
 yt_dlp::~yt_dlp()
 {
-}
-
-static bool _yt_dlp( const engines::engine&,const QByteArray& e )
-{
-	return e.startsWith( "[download]" ) && e.contains( "ETA" ) ;
-}
-
-static bool _fragment_output( const QByteArray& e )
-{
-	return utils::misc::startsWithAny( e,"[https @ ","[hls @ ","Opening '" ) ;
-}
-
-static bool _ffmpeg( const engines::engine&,const QByteArray& e )
-{
-	if( _fragment_output( e ) ){
-
-		return true ;
-	}else{
-		return utils::misc::startsWithAny( e,"frame=","size=" ) ;
-	}
-}
-
-static bool _aria2c( const engines::engine& s,const QByteArray& e )
-{
-	return aria2c::meetCondition( s,e ) ;
-}
-
-static bool _ffmpeg_internal( const engines::engine&,const QByteArray& e )
-{
-	return e.contains( " / ~" ) || e.startsWith( "Frame: " ) ;
-}
-
-static bool _shouldNotGetCalled( const engines::engine&,const QByteArray& )
-{
-	return false ;
 }
 
 class parseTemplateOutPut
@@ -560,38 +488,38 @@ public:
 	engines::engine::baseEngine::filterOutPut::result
 	formatOutput( const engines::engine::baseEngine::filterOutPut::args& args ) const override
 	{
-		if( m_function == _yt_dlp ){
+		if( m_function == ytDlpFilter::yt_dlp ){
 
 			m_tmp = this->outPutFormat( args ) ;
 
-			return { m_tmp,m_engine,m_function } ;
+			return { m_tmp,m_engine,{ m_function,ytDlpFilter::skipCondition } } ;
 
-		}else if( m_function == _ffmpeg_internal ){
+		}else if( m_function == ytDlpFilter::ffmpeg_internal ){
 
 			m_tmp = this->outPutFfmpeg( args ) ;
 
-			return { m_tmp,m_engine,m_function } ;
+			return { m_tmp,m_engine,{ m_function,ytDlpFilter::skipCondition } } ;
 		}else{
-			return { args.outPut,m_engine,m_function } ;
+			return { args.outPut,m_engine,{ m_function,ytDlpFilter::skipCondition } } ;
 		}
 	}
 	bool meetCondition( const engines::engine::baseEngine::filterOutPut::args& args ) const override
 	{
 		const auto& e = args.outPut ;
 
-		if( _yt_dlp( m_engine,e ) ){
+		if( ytDlpFilter::yt_dlp( m_engine,e ) ){
 
-			m_function = _yt_dlp ;
+			m_function = ytDlpFilter::yt_dlp ;
 
-		}else if( _ffmpeg( m_engine,e ) ){
+		}else if( ytDlpFilter::ffmpeg( m_engine,e ) ){
 
-			m_function = _ffmpeg_internal ;
+			m_function = ytDlpFilter::ffmpeg_internal ;
 
-		}else if( _aria2c( m_engine,e ) ){
+		}else if( ytDlpFilter::aria2c( m_engine,e ) ){
 
-			m_function = _aria2c ;
+			m_function = ytDlpFilter::aria2c ;
 		}else{
-			m_function = _shouldNotGetCalled ;
+			m_function = ytDlpFilter::shouldNotGetCalled ;
 
 			return false ;
 		}
@@ -602,7 +530,40 @@ public:
 	{
 		return m_engine ;
 	}
-private:
+private:	
+	static bool yt_dlp( const engines::engine&,const QByteArray& e )
+	{
+		return e.startsWith( "[download]" ) && e.contains( "ETA" ) ;
+	}
+	static bool skipCondition( const engines::engine&,const QByteArray& )
+	{
+		return false ;
+	}
+	static bool fragment_output( const QByteArray& e )
+	{
+		return utils::misc::startsWithAny( e,"[https @ ","[hls @ ","Opening '" ) ;
+	}
+	static bool ffmpeg( const engines::engine&,const QByteArray& e )
+	{
+		if( ytDlpFilter::fragment_output( e ) ){
+
+			return true ;
+		}else{
+			return utils::misc::startsWithAny( e,"frame=","size=" ) ;
+		}
+	}
+	static bool aria2c( const engines::engine& s,const QByteArray& e )
+	{
+		return aria2c::meetCondition( s,e ) ;
+	}
+	static bool ffmpeg_internal( const engines::engine&,const QByteArray& e )
+	{
+		return e.contains( " / ~" ) || e.startsWith( "Frame: " ) ;
+	}
+	static bool shouldNotGetCalled( const engines::engine&,const QByteArray& )
+	{
+		return false ;
+	}
 	QByteArray outPutFormat( const engines::engine::baseEngine::filterOutPut::args& args ) const
 	{
 		const auto& e = args.outPut ;
@@ -757,7 +718,7 @@ private:
 
 		double totalTime = 0 ;
 
-		if( _fragment_output( data ) ){
+		if( ytDlpFilter::fragment_output( data ) ){
 
 			return args.data.lastText() ;
 		}
@@ -844,9 +805,10 @@ private:
 	mutable bool( *m_function )( const engines::engine&,const QByteArray& ) ;
 } ;
 
-engines::engine::baseEngine::FilterOutPut yt_dlp::filterOutput()
+engines::engine::baseEngine::FilterOutPut yt_dlp::filterOutput( int )
 {
-	return { util::types::type_identity< ytDlpFilter >(),m_engine } ;
+	const auto& engine = engines::engine::baseEngine::engine() ;
+	return { util::types::type_identity< ytDlpFilter >(),engine } ;
 }
 
 class ytDlpMediainfo
@@ -1140,12 +1102,10 @@ void yt_dlp::updateLocalOptions( QStringList& opts )
 	opts.prepend( "--match-filter" ) ;
 }
 
-engines::engine::baseEngine::optionsEnvironment yt_dlp::setProxySetting( QStringList& e,const QString& s )
+void yt_dlp::setProxySetting( engines::engine::baseEngine::optionsEnvironment&,QStringList& e,const QString& s )
 {
 	e.append( "--proxy" ) ;
 	e.append( s ) ;
-
-	return {} ;
 }
 
 void yt_dlp::setTextEncondig( const QString& args,QStringList& opts )
@@ -1170,7 +1130,9 @@ engines::engine::baseEngine::DataFilter yt_dlp::Filter( int id )
 {
 	auto m = util::types::type_identity< yt_dlp::yt_dlplFilter >() ;
 
-	return { m,id,m_engine,*this } ;
+	const auto& engine = engines::engine::baseEngine::engine() ;
+
+	return { m,id,engine,*this } ;
 }
 
 QString yt_dlp::updateTextOnCompleteDownlod( const QString& uiText,
@@ -1299,7 +1261,9 @@ void yt_dlp::updateDownLoadCmdOptions( const engines::engine::baseEngine::update
 	if( utility::platformisFlatPak() ){
 
 		s.ourOptions.append( "-P" ) ;
-		s.ourOptions.append( m_settings->downloadFolder() ) ;
+		auto& settings = engines::engine::baseEngine::Settings() ;
+
+		s.ourOptions.append( settings.downloadFolder() ) ;
 	}
 
 	QStringList mm ;
@@ -1382,9 +1346,9 @@ const QByteArray& yt_dlp::yt_dlplFilter::operator()( Logger::Data& s )
 {
 	if( s.lastText() == "[media-downloader] Download Cancelled" ){
 
-		if( m_parent.m_settings->deleteFilesOnCanceledDownload() ){
+		if( m_parent.Settings().deleteFilesOnCanceledDownload() ){
 
-			auto m = m_parent.m_settings->downloadFolder() ;
+			auto m = m_parent.Settings().downloadFolder() ;
 
 			utility::deleteTmpFiles( m,m_fileNames ) ;
 		}
@@ -1597,7 +1561,7 @@ void yt_dlp::yt_dlplFilter::setFileName( const QByteArray& fileName )
 
 		if( utility::platformisFlatPak() ){
 
-			auto m = m_parent.m_settings->downloadFolder().size() ;
+			auto m = m_parent.Settings().downloadFolder().size() ;
 
 			_add( fileName.mid( m + 1 ) ) ;
 		}else{

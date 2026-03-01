@@ -589,11 +589,7 @@ configure::configure( const Context& ctx ) :
 
 	m_ui.cbLibraryTabEnable->setChecked( m_settings.enableLibraryTab() ) ;
 
-	auto cookieSource = m_settings.cookieSourceSetToBrowerName() ;
-
-	m_ui.cbCookieSource->setChecked( cookieSource ) ;
-
-	this->setCookieSourceLabel( cookieSource ) ;
+	m_ui.cbCookieSource->setChecked( m_settings.cookieSourceSetToBrowerName() ) ;
 
 	utility::connectQCheckBox( m_ui.cbCookieSource,[ this ]( bool checked ){
 
@@ -788,7 +784,7 @@ void configure::downloadExtension( const QString& name )
 
 QString configure::setUrl( const QString& e )
 {
-	QString hash = "022888d21983d7169b9c84ef96c505a0c832fe3f" ;
+	QString hash = "dc7bf63977221bc721520d79445a8530c8023c41" ;
 
 	QString url = "https://raw.githubusercontent.com/mhogomchungu/media-downloader/" ;
 
@@ -797,21 +793,45 @@ QString configure::setUrl( const QString& e )
 
 void configure::init_done()
 {
+	this->setCookieSourceLabel( m_settings.cookieSourceSetToBrowerName() ) ;
+
 	m_tablePresetOptions.selectLast() ;
 
-	const auto& m = m_ctx.Engines().getEngineByName( "yt-dlp" ) ;
+	struct updateEngines
+	{
+		updateEngines( const char * n,int m ) : name( n ),minVersion( m )
+		{
+		}
+		QString name ;
+		int minVersion ;
+	} ;
 
-	if( m ){
+	std::vector< updateEngines > updates ;
 
-		const auto& engine = m.value() ;
+	updates.emplace_back( "yt-dlp",2 ) ;
+	updates.emplace_back( "ytdl-patched",1 ) ;
+	updates.emplace_back( "gallery-dl",1 ) ;
+	updates.emplace_back( "svtplay-dl",1 ) ;
+	updates.emplace_back( "you-get",1 ) ;
+	updates.emplace_back( "yt-dlp-aria2c",1 ) ;
+	updates.emplace_back( "yt-dlp-ffmpeg",1 ) ;
 
-		const auto& configVersion = engine.configFileVersion() ;
+	for( const auto& it : updates ){
 
-		auto v = configVersion.isEmpty() ? 0 : configVersion.toInt() ;
+		const auto& m = m_ctx.Engines().getEngineByName( it.name ) ;
 
-		if( v < 2 ){
+		if( m ){
 
-			this->downloadExtension( engine.name() + ".json" ) ;
+			const auto& engine = m.value() ;
+
+			const auto& configVersion = engine.configFileVersion() ;
+
+			auto v = configVersion.isEmpty() ? 0 : configVersion.toInt() ;
+
+			if( v < it.minVersion ){
+
+				this->downloadExtension( engine.name() + ".json" ) ;
+			}
 		}
 	}
 }
@@ -1316,6 +1336,8 @@ void configure::setEngineOptions( const QString& e,engineOptions tab )
 
 			m_ui.lineEditConfigureCookieBrowserName->setText( mm ) ;
 			m_ui.lineEditConfigureCookieBrowserName->setEnabled( enable ) ;
+			m_ui.cbCookieSource->setEnabled( enable ) ;
+			m_ui.pbConfigureSetPathToCookieFile->setEnabled( enable ) ;
 		} ;
 
 		if( tab == engineOptions::url ){
