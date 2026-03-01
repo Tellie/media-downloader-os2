@@ -5,7 +5,7 @@
 ****                All the money you send will go to the QT5 project                          ****
 ===================================================================================================
 
-Media-downloader v5.4.6   
+Media-downloader v5.4.8   
 
  CONTENTS OF THIS FILE
  =====================
@@ -32,7 +32,7 @@ Media-downloader v5.4.6
 1. INTRODUCTION
 ===============
 
-Welcome to media-downloader v5.4.6 port for OS/2 and Arcanoae.
+Welcome to media-downloader v5.4.8 port for OS/2 and Arcanoae.
 
 This project is a Qt/C++ based GUI frontend to CLI multiple CLI-based tools that deal with downloading online media.11
 
@@ -130,46 +130,8 @@ development, you can do so in one of the following ways:
 ==========
 Compiled now with Qt v5.15.2
 
-Changelog:-
-     Version 5.4.1(July 11th, 2025)
-     [Flatpak]
-       - Make it possible to specifically call VLC to stream media(needs org.freedesktop.Flatpak permission).
-     [WINDOWS]
-       - Fix a bug caused by yt-dlp executable name change for 32 bit windows 7.
-     [ALL]
-       - Add Bulgarian translations.
-       - EXPERIMENTAL support for Gallery-dl working in Playlist tab.
-       - Add ability to show thumbnails in batch downloader tab when using gallery-dl.
-       - It is now possible to start downloading while the playlist tab is getting filled with entries.
-       - It is now possible to do simultaneous downloading from all three tabs that can do downloading.
-       - It is now possible to send multiple urls to VLC for streaming. This is useful for example
-         when you want to stream a media that is made up of a video only stream and an audio only stream.
-
-     Version 5.4.2(August 1st, 2025)
-     [ALL]
-       - Maintanance release that fixes various issues.
-
-     Version 5.4.3(October 1st, 2025)
-     [WINDOWS]
-       - Update ffmpeg to version 8.0.
-     [ALL]
-       - Add Ukranian translations.
-       - Various fixes and improvements.
-
-     Version 5.4.4(November 12th, 2025)
-     [ALL]
-       - Add support for autodownloading deno javascript runtime.
-
-     Version 5.4.5(November 15th, 2025)
-     [ALL]
-       - Various fixes and improvements.
-     [WINDOWS]
-       - Default to quickjs javascript runtime on windows7 because deno does not work in windows7.
-     [Flatpak]
-       - Default to quickjs javascript runtime because deno crashes.
-     [Linux and MacOS]
-       - Default to bsdtar and fall back to unzip when unzipping .zip files.
-
+Changelog:
+     Version 5.4.6(November 17th, 2025)
      Version 5.4.6(November 17th, 2025)
      [ALL]
       - Update French translations.
@@ -178,6 +140,16 @@ Changelog:-
       - Fix a bug that cause yt-dlp specific options to be set when using other engines.
      [Gallery-dl]
       - Fix a bug that caused downloaded files to be under "directlink" subfolder under certain circumstances.
+
+     Version 5.4.7(January 13th, 2026)
+     [ALL]
+      - Maintanance Release.
+
+     Version 5.4.8(January 21th, 2026)
+     [ALL]
+      - Update Chinese translations.
+     [WINDOWS7]
+      - Fix a bug that caused a wrong yt-dlp binary to be downloaded and used.
 
 How to install:
 
