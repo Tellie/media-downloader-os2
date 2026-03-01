@@ -66,6 +66,25 @@ namespace Ui
 
 namespace utility
 {
+	namespace impl
+	{
+		void qJsonArrJoin( QJsonArray& ) ;
+
+		template< typename First,typename ... Rest >
+		static void qJsonArrJoin( QJsonArray& arr,const First& f,Rest&& ... rest )
+		{
+			arr.append( f ) ;
+			impl::qJsonArrJoin( arr,std::forward< Rest >( rest ) ... ) ;
+		}
+	}
+
+	template< typename ... Args >
+	static QJsonArray QJsonArrayJoin( Args&& ... args )
+	{
+		QJsonArray arr ;
+		impl::qJsonArrJoin( arr,std::forward< Args >( args ) ... ) ;
+		return arr ;
+	}
 	class strl
 	{
 	public:
@@ -531,6 +550,7 @@ namespace utility
 	QString homePath() ;
 	QString clipboardText() ;
 	QString fromSecsSinceEpoch( qint64 ) ;
+	QStringList setEnvArgs( engines::engine::baseEngine::optionsEnvironment&,const QStringList& ) ;
 
 	enum class mainWindowKeyCombo{ CTRL_D,CTRL_A,ENTER } ;
 
@@ -599,6 +619,7 @@ namespace utility
 	bool pathIsFolderAndExists( const QString& ) ;
 	bool platformIsWindows() ;
 	bool platformIsWindows7() ;
+	bool platformisLegacyWindows() ;
 	bool platformIsLinux() ;
 	bool platformIsOSX() ;
 	bool platformisOS2() ;
@@ -629,6 +650,7 @@ namespace utility
 	bool startedUpdatedVersion( settings&,const utility::cliArguments& ) ;
 	void hideUnhideEntries( QMenu&,tableWidget&,int,bool ) ;
 	quint64 simpleRandomNumber() ;
+	void setCookieOption( QStringList&,settings&,const engines::engine& ) ;
 	void addToListOptionsFromsDownload( QStringList& args,
 					    const QString& downLoadOptions,
 					    const Context& ctx,
@@ -667,6 +689,46 @@ namespace utility
 			parent.setPath( filePath ) ;
 			utils::qthread::run( parent.move() ) ;
 		}
+	}
+
+	template< typename Function >
+	inline bool showContextMenuLogWidget( QObject * obj,
+					      QEvent * event,
+					      QPlainTextEdit * textEdit,
+					      Function function )
+	{
+		if( obj != textEdit ){
+
+			return false ;
+		}
+
+		auto a = dynamic_cast< QMouseEvent * >( event ) ;
+
+		if( a ){
+
+			auto b = a->buttons() & Qt::MouseButton::RightButton ;
+
+			if( event->type() && b ){
+
+				std::unique_ptr< QMenu > menu( textEdit->createStandardContextMenu() ) ;
+
+				#if QT_VERSION >= QT_VERSION_CHECK( 5,6,0 )
+					menu->addSeparator() ;
+
+					auto icon = QIcon::fromTheme( "edit-cut" ) ;
+
+					menu->addAction( icon,"Clear",std::move( function ) ) ;
+				#else
+					Q_UNUSED( function )
+				#endif
+
+				menu->exec( QCursor::pos() ) ;
+
+				return true ;
+			}
+		}
+
+		return false ;
 	}
 
 	class CPU
@@ -1326,10 +1388,6 @@ namespace utility
 
 			auto mm = "cmd: " + m_engine.commandString( m_cmd ) ;
 
-			m_logger.add( mm ) ;
-
-			m_events.printOutPut( mm.toUtf8() + "\n" ) ;
-
 			if( m_envExtra.isEmpty() ){
 
 				exe.setProcessEnvironment( m_engine.processEnvironment() ) ;
@@ -1337,7 +1395,13 @@ namespace utility
 				const auto& m = m_engine.processEnvironment() ;
 
 				exe.setProcessEnvironment( m_envExtra.update( m ) ) ;
-			}
+
+				m_envExtra.update( mm ) ;
+			}			
+
+			m_logger.add( mm ) ;
+
+			m_events.printOutPut( mm.toUtf8() + "\n" ) ;
 
 			const auto& df = m_events.downloadFolder() ;
 
@@ -1458,11 +1522,25 @@ namespace utility
 
 				QStringList m ;
 
-				m_envExtra = m_engine.setProxySetting( m,mm.networkProxyString() ) ;
+				m_engine.setProxySetting( m_envExtra,m,mm.networkProxyString() ) ;
 
-				m_cmd = { m_engine.exePath(),m + args } ;
+				if( m_engine.hasConvertArgToEnv( args ) ){
+
+					auto a = m_engine.convertArgToEnv( m_envExtra,args ) ;
+
+					m_cmd = { m_engine.exePath(),m + a } ;
+				}else{
+					m_cmd = { m_engine.exePath(),m + args } ;
+				}
 			}else{
-				m_cmd = { m_engine.exePath(),args } ;
+				if( m_engine.hasConvertArgToEnv( args ) ){
+
+					auto a = m_engine.convertArgToEnv( m_envExtra,args ) ;
+
+					m_cmd = { m_engine.exePath(),a } ;
+				}else{
+					m_cmd = { m_engine.exePath(),args } ;
+				}
 			}
 
 			return m_cmd ;

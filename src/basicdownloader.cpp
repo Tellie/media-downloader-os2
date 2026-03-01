@@ -88,52 +88,7 @@ basicdownloader::basicdownloader( const Context& ctx ) :
 
 	m_tableList.connect( cm,[ this ]( const QPoint& ){
 
-		auto row = m_tableList.currentRow() ;
-
-		QMenu m ;
-
-		if( row != -1 ){
-
-			class meaw
-			{
-			public:
-				meaw( tableMiniWidget< engines::engine::baseEngine::mediaInfo,5 >& m ) :
-					m_table( m )
-				{
-				}
-				const QJsonObject& stuffAt( int s ) const
-				{
-					m_obj = m_table.stuffAt( s ).toqJsonObject() ;
-
-					return m_obj ;
-				}
-				std::vector< int > selectedRows() const
-				{
-					return m_table.selectedRows() ;
-				}
-			private:
-				mutable QJsonObject m_obj ;
-				const tableMiniWidget< engines::engine::baseEngine::mediaInfo,5 >& m_table ;
-			} ;
-
-			utility::setContextMenuForDirectUrl( meaw( m_tableList ),m,m_ctx ) ;
-
-			m.addSeparator() ;
-
-			connect( m.addAction( tr( "Hide List" ) ),&QAction::triggered,[ this ](){
-
-				m_tableList.setVisible( false ) ;
-			} ) ;
-
-			m.exec( QCursor::pos() ) ;
-		}else{
-			connect( m.addAction( tr( "Hide List" ) ),&QAction::triggered,[ this ](){
-
-				m_tableList.setVisible( false ) ;
-			} ) ;
-
-			m.exec( QCursor::pos() ) ;
-		}
+		this->setContextMenuForDirectUrl() ;
 	} ) ;
 
 	connect( m_ui.pbOptionsDownloadOptions,&QPushButton::clicked,[ this ](){
@@ -248,7 +203,7 @@ QStringList basicdownloader::enginesList()
 
 void basicdownloader::resetMenu( const QStringList& args )
 {
-	utility::setMenuOptions( m_ctx,args,true,true,m_ui.pbEntries,[ this ]( QAction * aa ){
+	utility::setMenuOptions( m_ctx,args,false,true,m_ui.pbEntries,[ this ]( QAction * aa ){
 
 		utility::selectedAction ac( aa ) ;
 
@@ -368,8 +323,6 @@ void basicdownloader::list()
 
 	auto args = engine.defaultListCmdOptions() ;
 
-	qDebug() << args ;
-
 	engine.setTextEncondig( args ) ;
 
 	engine.updateCmdOptions( args ) ;
@@ -380,25 +333,59 @@ void basicdownloader::list()
 
 	utility::addToListOptionsFromsDownload( args,mm,m_ctx,engine ) ;
 
-	auto cookieName = m_settings.cookieBrowserName( engine.name() ) ;
-	const auto& ca = engine.cookieArgument() ;
-
-	if( !cookieName.isEmpty() && !ca.isEmpty() ){
-
-		args.append( ca ) ;
-		args.append( cookieName ) ;
-	}
-
-	auto cookieFile = m_settings.cookieBrowserTextFilePath( engine.name() ) ;
-	const auto& caa = engine.cookieTextFileArgument() ;
-
-	if( !cookieFile.isEmpty() && !caa.isEmpty() ){
-
-		args.append( caa ) ;
-		args.append( cookieFile ) ;
-	}
+	utility::setCookieOption( args,m_settings,engine ) ;
 
 	this->run( backend,args,"",true ) ;
+}
+
+void basicdownloader::setContextMenuForDirectUrl()
+{
+	auto row = m_tableList.currentRow() ;
+
+	QMenu m ;
+
+	if( row != -1 ){
+
+		class meaw
+		{
+		public:
+			meaw( tableMiniWidget< engines::engine::baseEngine::mediaInfo,5 >& m ) :
+			    m_table( m )
+			{
+			}
+			const QJsonObject& stuffAt( int s ) const
+			{
+				m_obj = m_table.stuffAt( s ).toqJsonObject() ;
+
+				return m_obj ;
+			}
+			std::vector< int > selectedRows() const
+			{
+				return m_table.selectedRows() ;
+			}
+		private:
+			mutable QJsonObject m_obj ;
+			const tableMiniWidget< engines::engine::baseEngine::mediaInfo,5 >& m_table ;
+		} ;
+
+		utility::setContextMenuForDirectUrl( meaw( m_tableList ),m,m_ctx ) ;
+
+		m.addSeparator() ;
+
+		connect( m.addAction( tr( "Hide List" ) ),&QAction::triggered,[ this ](){
+
+			m_tableList.setVisible( false ) ;
+		} ) ;
+
+		m.exec( QCursor::pos() ) ;
+	}else{
+		connect( m.addAction( tr( "Hide List" ) ),&QAction::triggered,[ this ](){
+
+			m_tableList.setVisible( false ) ;
+		} ) ;
+
+		m.exec( QCursor::pos() ) ;
+	}
 }
 
 void basicdownloader::download( const QString& url )

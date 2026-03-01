@@ -62,7 +62,7 @@ public:
 		yt_dlp& m_parent ;
 	} ;
 
-	engines::engine::baseEngine::FilterOutPut filterOutput() override ;
+	engines::engine::baseEngine::FilterOutPut filterOutput( int ) override ;
 
 	std::vector< engines::engine::baseEngine::mediaInfo > mediaProperties( Logger&,const QByteArray& ) override ;
 
@@ -76,7 +76,7 @@ public:
 
 	void updateLocalOptions( QStringList& ) override ;
 
-	engines::engine::baseEngine::optionsEnvironment setProxySetting( QStringList&,const QString& ) override ;
+	void setProxySetting( engines::engine::baseEngine::optionsEnvironment&,QStringList&,const QString& ) override ;
 
 	void setTextEncondig( const QString&,QStringList& ) override ;
 
@@ -103,18 +103,10 @@ public:
 				 Logger& logger,
 				 const engines::enginePaths& enginePath ) ;
 
-	yt_dlp( const engines&,
-		const engines::engine&,
-		QJsonObject&,
-		Logger& logger,
-		const engines::enginePaths&,
-		settings& ) ;
+	yt_dlp( const engines&,const engines::engine&,QJsonObject& ) ;
 private:
 	std::vector< engines::engine::baseEngine::mediaInfo >
 	mediaProperties( Logger&,const QJsonArray&,const QJsonObject& ) ;
-
-	const engines::engine& m_engine ;
 	QJsonArray m_objs ;
-	settings * m_settings ;
 	QProcessEnvironment m_processEnvironment ;
 };

@@ -450,16 +450,41 @@ getsauce::~getsauce()
 {
 }
 
-getsauce::getsauce( const engines& engines,const engines::engine& engine,QJsonObject&,const QString& df ) :
+getsauce::getsauce( const engines& engines,const engines::engine& engine,QJsonObject& ) :
 	engines::engine::baseEngine( engines.Settings(),engine,engines.processEnvironment() ),
 	m_engine( engine ),
-	m_downloadFolder( df + "/" )
+	m_downloadFolder( engines.Settings().downloadFolder() + "/" )
 {
 }
 
-engines::engine::baseEngine::optionsEnvironment getsauce::setProxySetting( QStringList&,const QString& e )
+void getsauce::setProxySetting( engines::engine::baseEngine::optionsEnvironment& s,QStringList&,const QString& e )
 {
-	return { "HTTPS_PROXY",e } ;
+	s.add( "HTTPS_PROXY",e ) ;
+}
+
+bool getsauce::hasConvertArgToEnv( const QStringList& e )
+{
+	return e.contains( "--proxy" ) ;
+}
+
+QStringList getsauce::convertArgToEnv( engines::engine::baseEngine::optionsEnvironment& s,const QStringList& e )
+{
+	auto a = e ;
+
+	for( int i = 0 ; i < a.size() ; i++ ){
+
+		if( a[ i ] == "--proxy" && i + 1 < a.size() ){
+
+			s.add( "HTTPS_PROXY",e[ i + 1 ] ) ;
+
+			a.removeAt( i ) ;
+			a.removeAt( i ) ;
+
+			break ;
+		}
+	}
+
+	return a ;
 }
 
 QString getsauce::updateTextOnCompleteDownlod( const QString& uiText,
@@ -496,32 +521,20 @@ QString getsauce::updateTextOnCompleteDownlod( const QString& uiText,
 	}
 }
 
-static bool _meetCondition( const engines::engine&,const QByteArray& e )
-{
-	if( e.contains( "Merging into " ) && e.contains( " ..." ) ){
-
-		return true ;
-	}else{
-		return e.contains( "Downloading " ) && e.contains( " ..." ) ;
-	}
-}
-
-static bool _meetLocalCondition( const engines::engine&,const QByteArray& e )
-{
-	return e.contains( ") [" ) ;
-}
-
 using Output = engines::engine::baseEngine::filterOutPut ;
 
 class getsauceFilter : public engines::engine::baseEngine::filterOutPut
 {
 public:
-	getsauceFilter( const engines::engine& engine ) : m_engine( engine )
+	getsauceFilter( const engines::engine& engine,int id ) :
+		m_engine( engine ),
+		m_id( id ),
+		m_callables( getsauceFilter::meetLocalCondition,getsauceFilter::skipCondition )
 	{
 	}
 	Output::result formatOutput( const Output::args& args ) const override
 	{
-		auto data = args.data.toLine() + args.outPut ;
+		auto data = args.data.toLine( m_id ) + args.outPut ;
 
 		auto m = data.indexOf( this->marker() ) ;
 
@@ -529,7 +542,7 @@ public:
 
 			return this->formatOutput( args,data,m ) ;
 		}else{
-			return { args.outPut,m_engine,_meetLocalCondition } ;
+			return { args.outPut,m_engine,m_callables } ;
 		}
 	}
 	Output::result formatOutput( const Output::args& args,const QByteArray& allData,int ) const
@@ -544,7 +557,7 @@ public:
 
 			if( mm == -1 ){
 
-				return { args.outPut,m_engine,_meetLocalCondition } ;
+				return { args.outPut,m_engine,m_callables } ;
 			}else{
 				return this->parse( false,allData.mid( mm + 12 ),allData,args ) ;
 			}
@@ -552,13 +565,33 @@ public:
 	}
 	bool meetCondition( const engines::engine::baseEngine::filterOutPut::args& args ) const override
 	{
-		return _meetCondition( m_engine,args.outPut ) ;
+		const auto& e = args.outPut ;
+
+		if( e.contains( "Merging into " ) && e.contains( " ..." ) ){
+
+			return true ;
+		}else{
+			return e.contains( "Downloading " ) && e.contains( " ..." ) ;
+		}
 	}
 	const engines::engine& engine() const override
 	{
 		return m_engine ;
 	}
+	static bool skipCondition( const engines::engine&,const QByteArray& e )
+	{
+		return e.trimmed().isEmpty() ;
+	}
 private:
+	static bool meetLocalCondition( const engines::engine&,const QByteArray& e )
+	{
+		if( e.contains( "Downloading:" ) || e.contains( "Merging:" ) ){
+
+			return true ;
+		}else{
+			return false ;
+		}
+	}
 	class urlInfo
 	{
 	public:
@@ -646,7 +679,7 @@ private:
 
 		if( mm == -1 ){
 
-			return { args.outPut,m_engine,_meetLocalCondition } ;
+			return { args.outPut,m_engine,m_callables } ;
 		}
 
 		auto percentage = data.mid( mm + 3 ) ;
@@ -706,7 +739,7 @@ private:
 			m_tmp = name + "\n" + info.size() + "   " + percentage + "   " + speedAndETA ;
 		}
 
-		return { m_tmp,m_engine,_meetLocalCondition } ;
+		return { m_tmp,m_engine,m_callables } ;
 	}
 	QByteArray marker() const
 	{
@@ -714,18 +747,28 @@ private:
 	}
 	const engines::engine& m_engine ;
 	mutable QByteArray m_tmp ;
+	int m_id ;
+	engines::engine::baseEngine::filterOutPut::result::callables m_callables ;
 } ;
+
+bool getsauce::skipCondition( const QByteArray& e )
+{
+	const auto& engine = engines::engine::baseEngine::engine() ;
+	return getsauceFilter::skipCondition( engine,e ) ;
+}
 
 engines::engine::baseEngine::DataFilter getsauce::Filter( int id )
 {
-	return { util::types::type_identity< getsauce::getsauce_dlFilter >(),m_engine,id,m_downloadFolder.toUtf8() } ;
+	auto m = util::types::type_identity< getsauce::getsauce_dlFilter >() ;
+
+	return { m,m_engine,id,m_downloadFolder.toUtf8() } ;
 }
 
-engines::engine::baseEngine::FilterOutPut getsauce::filterOutput()
+engines::engine::baseEngine::FilterOutPut getsauce::filterOutput( int id )
 {
 	const auto& engine = engines::engine::baseEngine::engine() ;
 
-	return { util::types::type_identity< getsauceFilter >(),engine } ;
+	return { util::types::type_identity< getsauceFilter >(),engine,id } ;
 }
 
 std::vector<engines::engine::baseEngine::mediaInfo> getsauce::mediaProperties( Logger& l,const QByteArray& e )
@@ -905,7 +948,7 @@ const QByteArray& getsauce::getsauce_dlFilter::operator()( Logger::Data& e )
 
 					return m_tmp ;
 
-				}else if( w.contains( "connection refused" ) ){
+				}else if( w.contains( "connection refused" ) || w.contains( "read: connection reset by peer" ) ){
 
 					m_tmp = "connection refused" ;
 
@@ -1000,8 +1043,6 @@ bool getsauce::getsauce_dlFilter::progressLine( const Logger::Data& e )
 
 		return true ;
 	}else{
-		const auto& m = e.lastText() ;
-
-		return m.contains( "Downloading: " ) || m.contains( "Merging: " ) ;
+		return false ;
 	}
 }

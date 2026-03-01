@@ -45,7 +45,7 @@ public:
 		engines::engine::baseEngine::preProcessing m_preProcessing ;
 	} ;
 
-	engines::engine::baseEngine::FilterOutPut filterOutput() override ;
+	engines::engine::baseEngine::FilterOutPut filterOutput( int ) override ;
 
 	QString updateCmdPath( const QString& ) override ;
 
@@ -63,7 +63,7 @@ public:
 
 	QStringList horizontalHeaderLabels() const override ;
 
-	engines::engine::baseEngine::optionsEnvironment setProxySetting( QStringList&,const QString& ) override ;
+	void setProxySetting( engines::engine::baseEngine::optionsEnvironment&,QStringList&,const QString& ) override ;
 
 	std::vector< engines::engine::baseEngine::mediaInfo > mediaProperties( Logger&,const QByteArray& ) override ;
 

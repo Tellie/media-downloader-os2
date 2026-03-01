@@ -42,9 +42,13 @@ public:
 		QByteArray m_downloadFolder ;
 	} ;
 	~getsauce() override ;
-	getsauce( const engines& e,const engines::engine& s,QJsonObject&,const QString& downloadFolder ) ;
+	getsauce( const engines& e,const engines::engine& s,QJsonObject& ) ;
 
-	engines::engine::baseEngine::optionsEnvironment setProxySetting( QStringList&,const QString& ) override ;
+	void setProxySetting( engines::engine::baseEngine::optionsEnvironment&,QStringList&,const QString& ) override ;
+
+	bool hasConvertArgToEnv( const QStringList& ) override ;
+
+	QStringList convertArgToEnv( engines::engine::baseEngine::optionsEnvironment&,const QStringList& ) override ;
 
 	QString updateTextOnCompleteDownlod( const QString& uiText,
 					     const QString& bkText,
@@ -52,8 +56,10 @@ public:
 					     const QString& tabName,
 					     const engines::engine::baseEngine::finishedState& ) override ;
 
+	bool skipCondition( const QByteArray& ) override ;
+
 	engines::engine::baseEngine::DataFilter Filter( int ) override ;
-	engines::engine::baseEngine::FilterOutPut filterOutput() override ;
+	engines::engine::baseEngine::FilterOutPut filterOutput( int ) override ;
 
 	std::vector< engines::engine::baseEngine::mediaInfo > mediaProperties( Logger&,const QByteArray& ) override ;
 

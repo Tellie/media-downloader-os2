@@ -5,7 +5,7 @@
 
 	<name>Media Downloader</name>
 
-	<summary>A GUI to yt-dlp, gallery-dl, lux.</summary>
+	<summary>A GUI to yt-dlp, gallery-dl, lux</summary>
 
 	<metadata_license>FSFAP</metadata_license>
 
@@ -13,6 +13,8 @@
 
 	<url type="homepage">https://mhogomchungu.github.io/media-downloader</url>
 	<url type="bugtracker">https://github.com/mhogomchungu/media-downloader/issues</url>
+	<url type="vcs-browser">https://github.com/mhogomchungu/media-downloader</url>
+	<url type="faq">https://github.com/mhogomchungu/media-downloader/wiki/Frequently-Asked-Questions</url>
 
 	<content_rating type="oars-1.1" />
 
@@ -26,24 +28,31 @@
 
 	<screenshots>
 		<screenshot>
+			<caption>Basic Downloader Tab</caption>
 			<image>https://raw.githubusercontent.com/mhogomchungu/media-downloader/8d9e2418b10655f8064b37a5770c064d96b898c1/images/media-downloader-1.png</image>
 		</screenshot>
 		<screenshot>
+			<caption>Batch Downloader Tab</caption>
 			<image>https://raw.githubusercontent.com/mhogomchungu/media-downloader/8d9e2418b10655f8064b37a5770c064d96b898c1/images/media-downloader-2.png</image>
 		</screenshot>
 		<screenshot  type="default">
+			<caption>Playlist Downloader Tab</caption>
 			<image>https://raw.githubusercontent.com/mhogomchungu/media-downloader/8d9e2418b10655f8064b37a5770c064d96b898c1/images/media-downloader-3.png</image>
 		</screenshot>
 		<screenshot>
+			<caption>Batch Downloader Tab</caption>
 			<image>https://raw.githubusercontent.com/mhogomchungu/media-downloader/8d9e2418b10655f8064b37a5770c064d96b898c1/images/media-downloader-4.png</image>
 		</screenshot>
 		<screenshot>
+			<caption>Configure Tab</caption>
 			<image>https://raw.githubusercontent.com/mhogomchungu/media-downloader/8d9e2418b10655f8064b37a5770c064d96b898c1/images/media-downloader-5.png</image>
 		</screenshot>
 		<screenshot>
+			<caption>About Tab</caption>
 			<image>https://raw.githubusercontent.com/mhogomchungu/media-downloader/8d9e2418b10655f8064b37a5770c064d96b898c1/images/media-downloader-6.png</image>
 		</screenshot>
 		<screenshot>
+			<caption>Library Tab</caption>
 			<image>https://raw.githubusercontent.com/mhogomchungu/media-downloader/8d9e2418b10655f8064b37a5770c064d96b898c1/images/media-downloader-7.png</image>
 		</screenshot>
 	</screenshots>
@@ -54,6 +63,24 @@
 	</categories>
 
 	<releases>
+		<release version="5.4.8" type="stable" date="2026-01-21">
+		<url type="details">https://github.com/mhogomchungu/media-downloader/releases/download/5.4.8/media-downloader-5.4.8.tar.xz</url>
+			<description>
+				<p>Changelog</p>
+				<ul>
+					<li>Maintanance Release</li>
+				</ul>
+			</description>
+		</release>
+		<release version="5.4.7" type="stable" date="2026-01-13">
+			<url type="details">https://github.com/mhogomchungu/media-downloader/releases/download/5.4.7/media-downloader-5.4.7.tar.xz</url>
+			<description>
+				<p>Changelog</p>
+				<ul>
+					<li>Maintanance Release</li>
+				</ul>
+			</description>
+		</release>
 		<release version="5.4.6" type="stable" date="2025-11-17" >
 			<url type="details">https://github.com/mhogomchungu/media-downloader/releases/download/5.4.6/media-downloader-5.4.6.tar.xz</url>
 			<description>
@@ -193,7 +220,7 @@
 			<description>
 				<p>Changelog</p>
 				<ul>
-					<li>Use yt-dlp from "https://github.com/nicolaasjan/yt-dlp" when using windows7.</li>
+					<li>Use yt-dlp from "github.com/nicolaasjan/yt-dlp" when using windows7.</li>
 					<li>Add a context menu in the batch downloader tab to hide/show UI controls to make visible more entries to be downloaded.</li>
 					<li>When application starts, put it on the screen where it was when it was last closed.</li>
 				</ul>

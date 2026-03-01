@@ -52,6 +52,8 @@ public:
 		if( utility::platformIsWindows() ){
 
 			m_pretendWindows7 = m.contains( "--pretend-win7" ) ;
+
+			m_pretendLegacyWindows = m.contains( "--pretend-winLegacy" ) ;
 		}
 	}
 	bool isWindows7() const
@@ -62,9 +64,14 @@ public:
 	{
 		return m_pretend32Bit ;
 	}
+	bool isLegacyWindows() const
+	{
+		return m_pretendLegacyWindows ;
+	}
 private:
 	bool m_pretend32Bit    = false ;
 	bool m_pretendWindows7 = false ;
+	bool m_pretendLegacyWindows = false ;
 } ;
 
 static pretendPlatform _pretendPlatform ;
@@ -96,11 +103,21 @@ bool utility::platformIsWindows7()
 	return false ;
 }
 
+bool utility::platformisLegacyWindows()
+{
+	return false ;
+}
+
 #endif
 
 #ifdef Q_OS_LINUX
 
 bool utility::platformIsWindows7()
+{
+	return false ;
+}
+
+bool utility::platformisLegacyWindows()
 {
 	return false ;
 }
@@ -130,6 +147,11 @@ bool utility::platformIsWindows()
 #ifdef Q_OS_MACOS
 
 bool utility::platformIsWindows7()
+{
+	return false ;
+}
+
+bool utility::platformisLegacyWindows()
 {
 	return false ;
 }
@@ -200,6 +222,37 @@ bool utility::platformIsWindows7()
 		const auto m = QOperatingSystemVersion::current() ;
 
 		return m < QOperatingSystemVersion::Windows8 ;
+	}
+}
+
+bool utility::platformisLegacyWindows()
+{
+	if( _pretendPlatform.isLegacyWindows() || _pretendPlatform.isWindows7() ){
+
+		return true ;
+	}else{
+		const auto m = QOperatingSystemVersion::current() ;
+
+		if( m.majorVersion() < 10 ){
+
+			return true ;
+
+		}else if( m.majorVersion() == 10 ){
+
+			/*
+			 * Windows 10 (1903)       10.0.18362
+			 * Windows 10 (1809)       10.0.17763
+			 * Windows 10 (1803)       10.0.17134
+			 * Windows 10 (1709)       10.0.16299
+			 * Windows 10 (1703)       10.0.15063
+			 * Windows 10 (1607)       10.0.14393
+			 * Windows 10 (1511)       10.0.10586
+			 * Windows 10              10.0.10240
+			 */
+			return m.microVersion() < 16299 ;
+		}else{
+			return false ;
+		}
 	}
 }
 
@@ -1280,23 +1333,7 @@ QStringList utility::updateOptions( const utility::updateOptionsStruct& s )
 
 	engine.updateDownLoadCmdOptions( ups,settings.downloadOptionsAsLast() ) ;
 
-	const auto& ca = engine.cookieArgument() ;
-	const auto& cv = settings.cookieBrowserName( engine.name() ) ;
-
-	if( !ca.isEmpty() && !cv.isEmpty() ){
-
-		opts.append( ca ) ;
-		opts.append( cv ) ;
-	}
-
-	auto cookieFile = settings.cookieBrowserTextFilePath( engine.name() ) ;
-	const auto& caa = engine.cookieTextFileArgument() ;
-
-	if( !cookieFile.isEmpty() && !caa.isEmpty() ){
-
-		opts.append( caa ) ;
-		opts.append( cookieFile ) ;
-	}
+	utility::setCookieOption( opts,settings,engine ) ;
 
 	for( auto& it : opts ){
 
@@ -2515,7 +2552,9 @@ void utility::addToListOptionsFromsDownload( QStringList& args,
 
 	if( mm.isSet() ){
 
-		engine.setProxySetting( args,mm.networkProxyString() ) ;
+		engines::engine::baseEngine::optionsEnvironment m ;
+
+		engine.setProxySetting( m,args,mm.networkProxyString() ) ;
 	}
 
 	if( !ee.isEmpty() ){
@@ -2581,9 +2620,7 @@ bool utility::copyFile( const QString& s,const QString& d,bool setExePermssion )
 
 bool utility::addData( const QByteArray& e )
 {
-	auto s = "\r                                                      \r" ;
-
-	if( e == "\r\r" || e == s || e.contains( "[download] " ) ){
+	if( e.trimmed().isEmpty() || e.contains( "[download] " ) ){
 
 		return false ;
 	}else{
@@ -2737,7 +2774,7 @@ void utility::contextMenuForDirectUrl( std::vector< UrlLinks > links,
 
 				if( e.name == "VLC" ){
 
-					auto m = m_ctx.Settings().flatPakHasVLCSupport() ;
+					auto m = m_ctx.Settings().flatpakIntance().getVLC().valid() ;
 					ac->setEnabled( m ) ;
 				}
 			}
@@ -2979,4 +3016,29 @@ const QString& utility::CPU::getCPU() const
 
 	return m ;
 #endif
+}
+
+void utility::setCookieOption( QStringList& opts,settings& s,const engines::engine& engine )
+{
+	const auto& ca = engine.cookieArgument() ;
+	const auto& cv = s.cookieBrowserName( engine.name() ) ;
+
+	if( !ca.isEmpty() && !cv.isEmpty() ){
+
+		opts.append( ca ) ;
+		opts.append( cv ) ;
+	}
+
+	auto cookieFile = s.cookieBrowserTextFilePath( engine.name() ) ;
+	const auto& caa = engine.cookieTextFileArgument() ;
+
+	if( !cookieFile.isEmpty() && !caa.isEmpty() ){
+
+		opts.append( caa ) ;
+		opts.append( cookieFile ) ;
+	}
+}
+
+void utility::impl::qJsonArrJoin( QJsonArray& )
+{
 }
