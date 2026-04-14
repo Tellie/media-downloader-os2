@@ -424,6 +424,34 @@ Exampe 2: ${gateway}:8080</source>
         <source>Open Extension Folder</source>
         <translation>Άνοιγμα φακέλου επεκτάσεων</translation>
     </message>
+    <message>
+        <source>UI Scale</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>A Restart Is Required After Every Change</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Scale Up</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Scale Down</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Reset</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Use Deno From System If Available</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Use Extension From System If Available</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 <context>
     <name>QObject</name>
@@ -764,10 +792,6 @@ Exampe 2: ${gateway}:8080</source>
         <translation>Ασφαλές κανάλι των Windows</translation>
     </message>
     <message>
-        <source>File Not Found</source>
-        <translation>Το αρχείο δεν βρέθηκε</translation>
-    </message>
-    <message>
         <source>Download complete</source>
         <translation>Η λήψη ολοκληρώθηκε</translation>
     </message>
@@ -1103,6 +1127,14 @@ Exampe 2: ${gateway}:8080</source>
         <source>Failed To Find &quot;bsdtar&quot; or &quot;unzip&quot; Executable</source>
         <translation>Απέτυχε η εύρεση του εκτελέσιμου &quot;bsdtar&quot; ή &quot;unzip&quot;</translation>
     </message>
+    <message>
+        <source>New Ui Scale Factor: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Getting</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 <context>
     <name>basicdownloader</name>
@@ -1236,6 +1268,18 @@ Exampe 2: ${gateway}:8080</source>
     <message>
         <source>Set Path To Cookie File</source>
         <translation>Ορισμός διαδρομής για αρχείο cookie</translation>
+    </message>
+    <message>
+        <source>Current Ui Scale Factor: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Text Encoding</source>
+        <translation type="unfinished">Κωδικοποίηση κειμένου</translation>
+    </message>
+    <message>
+        <source>Enable AutoDownloading</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>

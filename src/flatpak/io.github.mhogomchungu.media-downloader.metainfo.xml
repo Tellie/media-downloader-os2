@@ -5,7 +5,7 @@
 
 	<name>Media Downloader</name>
 
-	<summary>A GUI to yt-dlp, gallery-dl, lux</summary>
+	<summary>A GUI to yt-dlp, gallery-dl and others</summary>
 
 	<metadata_license>FSFAP</metadata_license>
 
@@ -63,6 +63,34 @@
 	</categories>
 
 	<releases>
+		<release version="5.5.1" type="stable" date="2026-04-14">
+		<url type="details">https://github.com/mhogomchungu/media-downloader/releases/download/5.5.1/media-downloader-5.5.1.tar.xz</url>
+			<description>
+				<p>Changelog</p>
+				<ul>
+					<li>Continue to bundle svtplay-dl dependencies but unbundle svtplay-dl executable.</li>
+					<li>Add GUI options to tell MD to use system binaries or to download its own binaries.</li>
+				</ul>
+			</description>
+		</release>
+		<release version="5.5.0" type="stable" date="2026-03-14">
+		<url type="details">https://github.com/mhogomchungu/media-downloader/releases/download/5.5.0/media-downloader-5.5.0.tar.xz</url>
+			<description>
+				<p>Changelog</p>
+				<ul>
+					<li>Bundle svtplay-dl.</li>
+				</ul>
+			</description>
+		</release>
+		<release version="5.4.9" type="stable" date="2026-03-06">
+		<url type="details">https://github.com/mhogomchungu/media-downloader/releases/download/5.4.9/media-downloader-5.4.9.tar.xz</url>
+			<description>
+				<p>Changelog</p>
+				<ul>
+					<li>Add a Ui way to change Ui scale factor.</li>
+				</ul>
+			</description>
+		</release>
 		<release version="5.4.8" type="stable" date="2026-01-21">
 		<url type="details">https://github.com/mhogomchungu/media-downloader/releases/download/5.4.8/media-downloader-5.4.8.tar.xz</url>
 			<description>

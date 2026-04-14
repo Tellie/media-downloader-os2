@@ -203,7 +203,13 @@ public:
 
 	QStringList localizationLanguages() ;
 
-	QByteArray highDpiScalingFactor() ;
+	double highDpiScalingFactorValue() ;
+
+	double highDpiScalingFactorInterval() ;
+
+	void setHighDpiScalingFactorInterval( double ) ;
+
+	void setDenoEnableAutoDownload( bool ) ;
 
 	QPixmap defaultVideoThumbnailIcon( settings::tabName ) ;
 
@@ -228,6 +234,7 @@ public:
 	} ;
 
 	LogsLimits getLogsLimits() ;
+	bool denoEnableAutoDownload() ;
 	bool desktopNotifyOnDownloadComplete() ;
 	bool desktopNotifyOnAllDownloadComplete() ;
 	bool libraryShowFolderFirst() ;
@@ -246,6 +253,7 @@ public:
 	bool concurrentDownloading() ;
 	bool showMetaDataInBatchDownloader() ;
 	bool saveHistory() ;
+	bool denoInFlatpakUpdated() ;
 	bool playlistDownloaderSaveHistory() ;
 	bool singleInstance() ;
 	bool autoSavePlaylistOnExit() ;
@@ -258,6 +266,10 @@ public:
 	bool autoSetDefaultEngineAndOptions() ;
 	bool cookieSourceSetToBrowerName() ;
 	bool backgroundClipboardMonitor() ;
+	bool flatpackUseDenoRuntime() ;
+	bool useSystemSupportingEngine() ;
+	bool useSystemEngine() ;
+
 	void setMainWindowDimensions( QWidget * ) ;
 
 	qint64 timeOutWaitingForClipboardData() ;
@@ -272,6 +284,9 @@ public:
 	int thumbnailHeight( settings::tabName ) ;
 	int desktopNotificationTimeOut() ;
 
+	void setUseSystemSupportingEngine( bool ) ;
+	void setUseSystemEngine( bool ) ;
+	void setDenoInFlatpakUpdated( bool ) ;
 	void setAutoDownloadWhenAddedInBatchDownloader( bool ) ;
 	void setOpenWith( const QString& ) ;
 	void setCookieSourceSetToBrowerName( bool ) ;
@@ -305,7 +320,7 @@ public:
 	void setShowVersionInfoAndAutoDownloadUpdates( bool ) ;
 	void setThemeName( const QString& ) ;
 	void setPlaylistRangeHistoryLastUsed( const QString& engineName,const QString& ) ;
-	void setHighDpiScalingFactor( const QString& ) ;
+	void setHighDpiScalingFactorValue( double ) ;
 	void setTextEncoding( const QString&,const QString& ) ;
 	void setlibraryDownloadFolder( const QString& ) ;
 	void setCookieBrowserName( const QString& engineName,const QString& browserName ) ;
@@ -431,6 +446,11 @@ private:
 	int getOption( const QString& opt,int e )
 	{
 		return this->getValue( opt,e ).toInt() ;
+	}
+
+	double getOption( const QString& opt,double e )
+	{
+		return this->getValue( opt,e ).toDouble() ;
 	}
 
 	QStringList getOption( const QString& opt,const QStringList& e )

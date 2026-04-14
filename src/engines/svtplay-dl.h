@@ -27,6 +27,7 @@ class svtplay_dl : public engines::engine::baseEngine
 {
 public:
 	static const char * testData() ;
+	static void init( settings&,Logger& logger,const engines::enginePaths& enginePath ) ;
 
 	~svtplay_dl() override ;
 	svtplay_dl( const engines&,const engines::engine&,QJsonObject& ) ;
@@ -40,6 +41,7 @@ public:
 
 		~svtplay_dlFilter() override ;
 	private:
+		const QByteArray& lastText( const QByteArray& ) ;
 		QByteArray m_tmp ;
 		QByteArray m_fileName ;
 		engines::engine::baseEngine::preProcessing m_preProcessing ;
@@ -53,6 +55,7 @@ public:
 
 	engines::metadata parseJsonDataFromGitHub( const QJsonDocument& ) override ;
 
+	bool bundledEngine() override ;
 	static QString downloadUrl() ;
 
 	void updateOutPutChannel( QProcess::ProcessChannel& ) const override ;

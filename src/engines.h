@@ -258,7 +258,8 @@ public:
 			m_url( obj.value( "browser_download_url" ).toString() ),
 			m_size( obj.value( "size" ).toInt() ),
 			m_fileName( obj.value( "name" ).toString() ),
-			m_hash( obj.value( "digest" ).toString() )
+			m_hash( obj.value( "digest" ).toString() ),
+			m_version( obj.value( "tag_name" ).toString() )
 		{
 		}
 		metadata()
@@ -280,6 +281,10 @@ public:
 		{
 			return m_hash ;
 		}
+		const QString& version() const
+		{
+			return m_version ;
+		}
 		qint64 size() const
 		{
 			return m_size ;
@@ -289,6 +294,7 @@ public:
 		qint64 m_size = 0 ;
 		QString m_fileName ;
 		QString m_hash ;
+		QString m_version ;
 	} ;
 
 	class engine
@@ -788,6 +794,10 @@ public:
 
 			virtual void updateLocalOptions( QStringList& ) ;
 
+			virtual bool bundledEngine() ;
+
+			virtual bool engineRemovable() ;
+
 			class removeFilesStatus
 			{
 			public:
@@ -858,8 +868,7 @@ public:
 				{
 					return m_pairs.size() == 0 ;
 				}
-				void update( QString& ) const ;
-				QProcessEnvironment update( const QProcessEnvironment& ) const ;
+				QProcessEnvironment update( const QProcessEnvironment&,QString& ) const ;
 			private:
 				struct pair
 				{
@@ -906,9 +915,14 @@ public:
 				}
 			};
 
+			virtual bool autoUpdate( const engines::engine::baseEngine::onlineVersion&,
+						 const util::version& ) ;
+
 			virtual engines::engine::baseEngine::onlineVersion versionInfoFromGithub( const QByteArray& ) ;
 
 			virtual bool foundNetworkUrl( const QString& ) ;
+
+			virtual QString urlFileName( const QString& ) ;
 
 			class renameArchiveFolderStatus
 			{
@@ -1016,7 +1030,62 @@ public:
 			static bool meetExtraCondition( const QByteArray&,const QJsonObject& ) ;
 		} ;
 
-		engine()
+		class jsRuntimeInstalled
+		{
+		public:
+			jsRuntimeInstalled( const engines& ) ;
+			jsRuntimeInstalled( const engines&,const char * ) ;
+			const QString& name() const
+			{
+				return m_name ;
+			}
+			const QString& exeName() const
+			{
+				return m_exeName ;
+			}
+			const QString& exePath() const
+			{
+				return m_exePath ;
+			}
+			bool valid() const
+			{
+				return !this->name().isEmpty() ;
+			}
+		private:
+			template< typename List >
+			void search( const engines& e,const List& list,bool s )
+			{
+				for( const auto& it : list ){
+
+					auto m = e.findExecutable( it.exe,s ) ;
+
+					if( !m.isEmpty() ){
+
+						m_name    = it.name ;
+						m_exeName = it.exe ;
+						m_exePath = m ;
+
+						break ;
+					}
+				}
+			}
+			struct entry
+			{
+				entry( const char * n ) : name( n ),exe( n )
+				{
+				}
+				entry( const char * n,const char * e ) : name( n ),exe( e )
+				{
+				}
+				const char * name ;
+				const char * exe ;
+			} ;
+			QString m_name ;
+			QString m_exeName ;
+			QString m_exePath ;
+		} ;
+
+		engine( const engines& e ) : m_parent( e )
 		{
 		}
 
@@ -1257,6 +1326,10 @@ public:
 		{
 			return m_engine->filterOutput( id ) ;
 		}
+		QString urlFileName( const QString& e ) const
+		{
+			return m_engine->urlFileName( e ) ;
+		}
 		bool foundNetworkUrl( const QString& s ) const
 		{
 			return m_engine->foundNetworkUrl( s ) ;
@@ -1264,6 +1337,14 @@ public:
 		engines::engine::baseEngine::onlineVersion versionInfoFromGithub( const QByteArray& e ) const
 		{
 			return m_engine->versionInfoFromGithub( e ) ;
+		}
+		bool bundledEngine() const
+		{
+			return m_engine->bundledEngine() ;
+		}
+		bool engineRemovable() const
+		{
+			return m_engine->engineRemovable() ;
 		}
 		bool hasConvertArgToEnv( const QStringList& e ) const
 		{
@@ -1381,7 +1462,7 @@ public:
 		{
 			return m_cookieArgument ;
 		}
-		const QStringList extraArguments() const
+		const QStringList& extraArguments() const
 		{
 			return m_extraArguments ;
 		}
@@ -1426,6 +1507,10 @@ public:
 		{
 			return m_autoUpdate ;
 		}
+		bool autoUpdate( const engines::engine::baseEngine::onlineVersion& s ) const
+		{
+			return m_engine->autoUpdate( s,this->versionInfo() ) ;
+		}
 		bool supportingEngine() const
 		{
 			return m_supportingEngine ;
@@ -1443,9 +1528,10 @@ public:
 			return m_broken ;
 		}
 	private:
-		QJsonObject getOpts( const util::Json& ) const ;
+		QJsonObject getOpts( const util::Json&,settings& ) const ;
 		void setPermissions( const QString& ) const ;
 		void updateOptions() ;
+		void setJsRuntime() ;
 		QStringList toStringList( const QJsonValue&,bool = false ) const ;
 		QJsonObject getCmd( const QJsonObject&,const QString& ) ;
 
@@ -1527,10 +1613,11 @@ public:
 
 		QJsonObject m_controlStructure ;
 
+		const engines& m_parent ;
 		mutable engines::engine::exeArgs m_exePath ;
 	};
 	settings& Settings() const ;
-	QString findExecutable( const QString& exeName ) const ;
+	QString findExecutable( const QString& exeName,bool searchFromBeginning = true ) const ;
 	const QProcessEnvironment& processEnvironment() const ;
 	QString addEngine( const QByteArray& data,const QString& path,int ) ;
 	void removeEngine( const QString& name,int ) ;
@@ -1660,7 +1747,7 @@ private:
 	util::result< engines::engine > getSupportingEngineByName( const QString& ) const ;
 	util::result_ref< const engines::engine& > getCompleteEngineByPath( const QString& ) const ;
 	void engineAdd( const QString&,util::result< engines::engine >,int ) ;
-	QString findExecutable( const QString&,const QStringList&,QFileInfo& ) const ;
+	QString findExecutable( const QString&,const QStringList&,QFileInfo&,bool searchFromBeginning = true ) const ;
 	QProcessEnvironment getEnvPaths() const ;
 	QStringList dirEntries( const QString& ) const ;
 	Logger& m_logger ;
@@ -1673,7 +1760,7 @@ private:
 	class configDefaultEngine
 	{
 	public:
-		configDefaultEngine( Logger& logger,const enginePaths& enginePath ) ;
+		configDefaultEngine( const engines&,Logger& logger,const enginePaths& enginePath ) ;
 
 		const QString& name() const
 		{
@@ -1686,6 +1773,7 @@ private:
 	private:
 		QString m_name ;
 		QString m_configFileName ;
+		const engines& m_parent ;
 	} ;
 
 	engines::configDefaultEngine m_defaultEngine ;

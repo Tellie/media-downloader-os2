@@ -19,8 +19,6 @@
 
 #include "utility.h"
 
-#include "flatpak.h"
-
 #include "settings.h"
 #include "context.hpp"
 #include "reportFinished.h"
@@ -712,7 +710,14 @@ void utility::checkPermissions::disable()
 
 QString utility::errorMessage()
 {
-	char * s = nullptr ;
+	struct meaw
+	{
+		char * s = nullptr ;
+		~meaw()
+		{
+			LocalFree( s ) ;
+		}
+	} m ;
 
 	auto a = FORMAT_MESSAGE_FROM_SYSTEM ;
 	auto b = FORMAT_MESSAGE_IGNORE_INSERTS ;
@@ -723,13 +728,9 @@ QString utility::errorMessage()
 	auto le = GetLastError() ;
 	auto lg = MAKELANGID( LANG_NEUTRAL,SUBLANG_DEFAULT ) ;
 
-	FormatMessageA( flags,nullptr,le,lg,reinterpret_cast< char * >( &s ),0,nullptr ) ;
+	FormatMessageA( flags,nullptr,le,lg,reinterpret_cast< char * >( &m.s ),0,nullptr ) ;
 
-	QString m = s ;
-
-	LocalFree( s ) ;
-
-	return m ;
+	return m.s ;
 }
 
 class fileRename
@@ -2847,11 +2848,16 @@ QString utility::OSX3rdPartyDirPath()
 
 bool utility::platformisFlatPak()
 {
-#if FLATPAK
-	return true ;
-#else
-	return false ;
-#endif
+	static auto m = !QProcessEnvironment::systemEnvironment().value( "FLATPAK_ID" ).isEmpty() ;
+
+	return m ;
+}
+
+bool utility::platformIsAppImage()
+{
+	static auto m = !QProcessEnvironment::systemEnvironment().value( "APPIMAGE" ).isEmpty() ;
+
+	return m ;
 }
 
 quint64 utility::simpleRandomNumber()
@@ -2999,23 +3005,24 @@ const QString& utility::CPU::getCPU() const
 	static QString m = QSysInfo::currentCpuArchitecture() ;
 	return m ;
 #else
-	static QString m = [](){
-
-		if( utility::platformIsLinux() ){
-
-			QFile file( "/proc/sys/kernel/arch" ) ;
-
-			if( file.open( QIODevice::ReadOnly ) ){
-
-				return file.readAll().trimmed() ;
-			}
-		}
-
-		return QByteArray() ;
-	}() ;
-
+	static QString m = this->getCPUNatively() ;
 	return m ;
 #endif
+}
+
+QByteArray utility::CPU::getCPUNatively() const
+{
+	if( utility::platformIsLinux() ){
+
+		QFile file( "/proc/sys/kernel/arch" ) ;
+
+		if( file.open( QIODevice::ReadOnly ) ){
+
+			return file.readAll().trimmed() ;
+		}
+	}
+
+	return QByteArray() ;
 }
 
 void utility::setCookieOption( QStringList& opts,settings& s,const engines::engine& engine )

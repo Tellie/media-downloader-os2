@@ -60,6 +60,17 @@ configure::configure( const Context& ctx ) :
 	this->confirmResetMakeVisible( false ) ;
 	this->setVisibilityEditConfigFeature( false ) ;
 
+	auto scaleFactor = QString::number( m_settings.highDpiScalingFactorValue() ) ;
+
+	if( scaleFactor == "1" ){
+
+		scaleFactor = "1.0" ;
+	}
+
+	auto scaleFactorString = tr( "Current Ui Scale Factor: %1" ) ;
+
+	m_ui.labelUIScaleCurrentValue->setText( scaleFactorString.arg( scaleFactor ) ) ;
+
 	m_ui.tableWidgetConfigureUrl->setColumnWidth( 0,180 ) ;
 
 	m_ui.tabWidgetConfigure->setCurrentIndex( 0 ) ;
@@ -146,15 +157,81 @@ configure::configure( const Context& ctx ) :
 		QDesktopServices::openUrl( QUrl( "file:///" + m,QUrl::TolerantMode ) ) ;
 	} ) ;
 
+	class scaleUi
+	{
+	public:
+		enum class action{ up,down,reset } ;
+		scaleUi( configure& parent,scaleUi::action s ) : m_parent( parent ),m_action( s )
+		{
+		}
+		void operator()()
+		{
+			m_parent.m_scaleButtonPressed = true ;
+
+			m_parent.m_ui.pbConfigureScaleDown->setEnabled( false ) ;
+			m_parent.m_ui.pbConfigureScaleUp->setEnabled( false ) ;
+			m_parent.m_ui.pbConfigureScaleReset->setEnabled( false ) ;
+
+			auto s = m_parent.m_settings.highDpiScalingFactorValue() ;
+
+			auto interval = m_parent.m_settings.highDpiScalingFactorInterval() ;
+
+			if( m_action == scaleUi::action::up ){
+
+				s += interval ;
+
+			}else if( m_action == scaleUi::action::down ){
+
+				s -= interval ;
+			}else{
+				s = 1.0 ;
+			}
+
+			auto m = QString::number( s ) ;
+
+			if( m == "1" ){
+
+				m = "1.0" ;
+			}
+
+			auto w = QObject::tr( "New Ui Scale Factor: %1" ) ;
+
+			m_parent.m_ui.labelUIScaleCurrentValue->setText( w.arg( m ) ) ;
+
+			m_parent.m_settings.setHighDpiScalingFactorValue( s ) ;
+		}
+	private:
+		configure& m_parent ;
+		scaleUi::action m_action ;
+	} ;
+
+	connect( m_ui.pbConfigureScaleDown,&QPushButton::clicked,scaleUi( *this,scaleUi::action::down ) ) ;
+
+	connect( m_ui.pbConfigureScaleUp,&QPushButton::clicked,scaleUi( *this,scaleUi::action::up ) ) ;
+
+	connect( m_ui.pbConfigureScaleReset,&QPushButton::clicked,scaleUi( *this,scaleUi::action::reset ) ) ;
+
 	auto cc = static_cast< void ( QComboBox::* )( int ) >( &QComboBox::currentIndexChanged ) ;
 
-	connect( m_ui.comboBoxConfigureDarkTheme,cc,[ this,ths = ths.move() ]( int index ){
-
-		if( index != -1 ){
-
-			m_settings.setThemeName( ths.unTranslatedAt( index ) ) ;
+	class meaw
+	{
+	public:
+		meaw( settings& s,themes t ) : m_settings( s ),m_themes( t.move() )
+		{
 		}
-	} ) ;
+		void operator()( int index )
+		{
+			if( index != -1 ){
+
+				m_settings.setThemeName( m_themes.unTranslatedAt( index ) ) ;
+			}
+		}
+	private:
+		settings& m_settings ;
+		themes m_themes ;
+	} ;
+
+	connect( m_ui.comboBoxConfigureDarkTheme,cc,meaw( m_settings,ths.move() ) ) ;
 
 	if( m_settings.showVersionInfoAndAutoDownloadUpdates() ){
 
@@ -607,6 +684,9 @@ configure::configure( const Context& ctx ) :
 	m_ui.cbConfigureNotifyWhenAllDownloadCompltes->setChecked( m_settings.desktopNotifyOnAllDownloadComplete() ) ;
 	m_ui.cbConfigureNotifyWhenDownloadComplete->setChecked( m_settings.desktopNotifyOnDownloadComplete() ) ;
 
+	m_ui.cbConfigureUseSystemEngine->setChecked( m_settings.useSystemEngine() ) ;
+	m_ui.cbConfigureUseSystemSupportingEngine->setChecked( m_settings.useSystemSupportingEngine() ) ;
+
 	auto ss = m_settings.showMetaDataInBatchDownloader() ;
 
 	m_ui.cbConfigureShowMetaDataInBatchDownloader->setChecked( ss ) ;
@@ -784,7 +864,7 @@ void configure::downloadExtension( const QString& name )
 
 QString configure::setUrl( const QString& e )
 {
-	QString hash = "dc7bf63977221bc721520d79445a8530c8023c41" ;
+	QString hash = "8c5a931ef97c15f81c591a6c5537dbd921471a31" ;
 
 	QString url = "https://raw.githubusercontent.com/mhogomchungu/media-downloader/" ;
 
@@ -811,10 +891,11 @@ void configure::init_done()
 	updates.emplace_back( "yt-dlp",2 ) ;
 	updates.emplace_back( "ytdl-patched",1 ) ;
 	updates.emplace_back( "gallery-dl",1 ) ;
-	updates.emplace_back( "svtplay-dl",1 ) ;
+	updates.emplace_back( "svtplay-dl",2 ) ;
 	updates.emplace_back( "you-get",1 ) ;
 	updates.emplace_back( "yt-dlp-aria2c",1 ) ;
 	updates.emplace_back( "yt-dlp-ffmpeg",1 ) ;
+	updates.emplace_back( "deno",2 ) ;
 
 	for( const auto& it : updates ){
 
@@ -859,13 +940,15 @@ void configure::setUpdateMenu()
 
 	for( const auto& it : m_ctx.Engines().getEngines() ){
 
-		if( it.validDownloadUrl() ){
+		if( !it.supportingEngine() ){
 
 			auto ac = m_menu.addAction( it.name() ) ;
 
 			ac->setObjectName( it.name() ) ;
 
-			ac->setEnabled( networkAccess::hasNetworkSupport() ) ;
+			auto m = it.validDownloadUrl() ;
+
+			ac->setEnabled( m && networkAccess::hasNetworkSupport() ) ;
 		}
 	}
 
@@ -887,19 +970,51 @@ void configure::tabEntered()
 
 	if( s ){
 
-		const auto& e = s.value() ;
-
-		this->populateOptionsTable( e ) ;
+		this->populateOptionsTable( s.value() ) ;
 	}
 }
 
 void configure::populateOptionsTable( const engines::engine& s,int selectRow )
 {
+	auto enable = !s.supportingEngine() ;
+
+	m_ui.lineEditConfigureTextEncoding->setEnabled( enable ) ;
+
+	m_ui.pbAddDefaultDownloadOption->setEnabled( enable ) ;
+
+	m_ui.lineEditAddDefaultDownloadOption->setEnabled( enable ) ;
+
+	m_ui.pbConfigureEngineDefaultOptions->setEnabled( enable ) ;
+
+	m_tableDefaultDownloadOptions.setEnabled( enable ) ;
+
+	m_ui.labelConfigureOptionsToAdd->setEnabled( enable ) ;
+
 	m_ui.lineEditConfigureTextEncoding->setText( m_settings.textEncoding( s.name() ) ) ;
 
 	m_ui.lineEditConfigureTextEncoding->setEnabled( s.supportsTextEnconding() ) ;
 
 	m_tableDefaultDownloadOptions.clear() ;
+
+	m_ui.labelConfigureTextEncoding->setText( tr( "Text Encoding" ) ) ;
+
+	if( s.supportingEngine() ){
+
+		if( s.name() == "deno" ){
+
+			m_ui.lineEditConfigureTextEncoding->setVisible( false ) ;
+
+			m_ui.cbDenoEnableAutoDownload->setVisible( true ) ;
+
+			m_ui.cbDenoEnableAutoDownload->setChecked( m_settings.denoEnableAutoDownload() ) ;
+
+			m_ui.labelConfigureTextEncoding->setText( tr( "Enable AutoDownloading" ) ) ;
+		}
+
+		return ;
+	}
+
+	m_ui.cbDenoEnableAutoDownload->setVisible( false ) ;
 
 	m_downloadEngineDefaultOptions.forEach( [ &s,this ]( const configure::downloadDefaultOptions::qOpts& opts ){
 
@@ -954,8 +1069,22 @@ void configure::updateEnginesList( const QStringList& e )
 		this->setEngineOptions( it,engineOptions::both ) ;
 	}
 
-	cb.setCurrentIndex( 0 ) ;
-	xb.setCurrentIndex( 0 ) ;
+	if( cb.count() ){
+
+		cb.setCurrentIndex( 0 ) ;
+
+		const auto& m = m_ctx.Engines().getEngineByName( "deno" ) ;
+
+		if( m ){
+
+			cb.addItem( m->name() ) ;
+		}
+	}
+
+	if( xb.count() ){
+
+		xb.setCurrentIndex( 0 ) ;
+	}
 
 	this->setEngineOptions( cb.currentText(),engineOptions::both ) ;
 }
@@ -1051,30 +1180,46 @@ QString configure::getEngineNameFromUrlManager( const QString& u )
 	return m_downloadDefaultOptions.engineNameFromUrl( u ) ;
 }
 
-QMenu *  configure::addExtenion()
+void configure::addAction( QMenu * m,const Context& ctx,const QString& name,const QString& configName )
+{
+	auto ac = m->addAction( name ) ;
+	ac->setObjectName( configName ) ;
+
+	const auto& engine = ctx.Engines().getEngineByName( name ) ;
+
+	if( engine ){
+
+		ac->setEnabled( !engine->bundledEngine() ) ;
+	}else{
+		ac->setEnabled( true ) ;
+	}
+}
+
+QMenu * configure::addExtenion()
 {
 	auto m = new QMenu( &m_ctx.mainWidget() ) ;
 
-	m->addAction( "yt-dlp" )->setObjectName( "yt-dlp.json" ) ;
-	m->addAction( "yt-dlp-aria2c" )->setObjectName( "yt-dlp-aria2c.json" ) ;
-	m->addAction( "yt-dlp-ffmpeg" )->setObjectName( "yt-dlp-ffmpeg.json" ) ;
+	this->addAction( m,m_ctx,"yt-dlp","yt-dlp.json" ) ;
+	this->addAction( m,m_ctx,"yt-dlp-aria2c","yt-dlp-aria2c.json" ) ;
+	this->addAction( m,m_ctx,"yt-dlp-ffmpeg","yt-dlp-ffmpeg.json" ) ;
 
-	m->addAction( "gallery-dl" )->setObjectName( "gallery-dl.json" ) ;
-	m->addAction( "svtplay-dl" )->setObjectName( "svtplay-dl.json" ) ;
-	m->addAction( "you-get" )->setObjectName( "you-get.json" ) ;
-	m->addAction( "getsauce" )->setObjectName( "getsauce.json" ) ;
+	this->addAction( m,m_ctx,"gallery-dl","gallery-dl.json" ) ;
+	this->addAction( m,m_ctx,"you-get","you-get.json" ) ;
+	this->addAction( m,m_ctx,"getsauce","getsauce.json" ) ;
 
-	//m->addAction( "lux" )->setObjectName( "lux.json" ) ;
+	//this->addAction( m,m_ctx,"lux","lux.json" ) ;
+
+	this->addAction( m,m_ctx,"svtplay-dl","svtplay-dl.json" ) ;
 
 	if( utility::platformIsNOTWindows() ){
 
-		m->addAction( "aria2c" )->setObjectName( "aria2c.json" ) ;
-		m->addAction( "wget" )->setObjectName( "wget.json" ) ;
+		this->addAction( m,m_ctx,"aria2c","aria2c.json" ) ;
+		this->addAction( m,m_ctx,"wget","wget.json" ) ;
 	}
 
 	m->addSeparator() ;
 
-	m->addAction( "custom" )->setObjectName( "custom" ) ;
+	this->addAction( m,m_ctx,"custom","custom" ) ;
 
 	class meaw
 	{
@@ -1095,7 +1240,6 @@ QMenu *  configure::addExtenion()
 			}
 		}
 	private:
-
 		void downloadNamed( const QString& name )
 		{
 			m_parent.downloadExtension( name ) ;
@@ -1136,8 +1280,18 @@ QMenu * configure::removeExtenion()
 
 	for( const auto& it : m_ctx.Engines().enginesList() ){
 
-		auto e = it ;
-		m->addAction( e.replace( ".json","" ) )->setObjectName( it ) ;
+		auto e = QString( it ).replace( ".json","" ) ;
+
+		const auto& engine = m_ctx.Engines().getEngineByName( e ) ;
+
+		if( engine && !engine->supportingEngine() ){
+
+			auto ac = m->addAction( engine->name() ) ;
+
+			ac->setObjectName( it ) ;
+
+			ac->setEnabled( !engine->bundledEngine() ) ;
+		}
 	}
 
 	connect( m,&QMenu::triggered,[ & ]( QAction * ac ){
@@ -1146,11 +1300,7 @@ QMenu * configure::removeExtenion()
 
 		m_ctx.Engines().removeEngine( ac->objectName(),id ) ;
 
-		auto& t = m_ctx.TabManager() ;
-
-		t.basicDownloader().setAsActive() ;
-
-		t.setDefaultEngines() ;
+		m_ctx.TabManager().setDefaultEngines() ;
 	} ) ;
 
 	return m ;
@@ -1173,18 +1323,20 @@ void configure::addEngine( const QByteArray& d,const QString& n )
 
 	if( engine ){
 
+		const auto& eng = engine.value() ;
+
 		class woof : public versionInfo::idone
 		{
 		public:
-			woof( const Context& ctx,QString de ) :
-			    m_ctx( ctx ),m_defaultEngine( std::move( de ) )
+			woof( const Context& ctx,const engines::engine& engine ) :
+				m_ctx( ctx ),m_engine( engine )
 			{
 			}
 			void operator()() override
 			{
-				if( m_success ){
+				if( m_success && !m_engine.supportingEngine() ){
 
-					utility::setDefaultEngine( m_ctx,m_defaultEngine ) ;
+					utility::setDefaultEngine( m_ctx,m_engine.name() ) ;
 				}
 			}
 			void failed() override
@@ -1193,7 +1345,7 @@ void configure::addEngine( const QByteArray& d,const QString& n )
 			}
 		private:
 			const Context& m_ctx ;
-			QString m_defaultEngine ;
+			const engines::engine& m_engine ;
 			bool m_success = true ;
 		} ;
 
@@ -1201,7 +1353,7 @@ void configure::addEngine( const QByteArray& d,const QString& n )
 
 		auto tt = util::types::type_identity< woof >() ;
 
-		m.check( { engine.value(),id },{ tt,m_ctx,std::move( name ) },true ) ;
+		m.check( { eng,id },{ tt,m_ctx,eng },true ) ;
 	}
 }
 
@@ -1222,6 +1374,9 @@ void configure::saveOptions()
 	m_settings.setAutoDownloadWhenAddedInBatchDownloader( m_ui.cbconfigureAutoDownload->isChecked() ) ;
 	m_settings.setDesktopNotifyOnAllDownloadComplete( m_ui.cbConfigureNotifyWhenAllDownloadCompltes->isChecked() ) ;
 	m_settings.setDesktopNotifyOnDownloadComplete( m_ui.cbConfigureNotifyWhenDownloadComplete->isChecked() ) ;
+	m_settings.setDenoEnableAutoDownload( m_ui.cbDenoEnableAutoDownload->isChecked() ) ;
+	m_settings.setUseSystemSupportingEngine( m_ui.cbConfigureUseSystemSupportingEngine->isChecked() ) ;
+	m_settings.setUseSystemEngine( m_ui.cbConfigureUseSystemEngine->isChecked() ) ;
 
 	auto s = m_ui.lineEditConfigureMaximuConcurrentDownloads->text() ;
 
@@ -1440,7 +1595,10 @@ void configure::enableAll()
 	m_ui.lineEditCustormProxyAddress->setEnabled( m_ui.rbUseManualProxy->isChecked() ) ;
 	m_ui.labelProxy->setEnabled( m_ui.rbUseManualProxy->isChecked() ) ;
 
-	m_ui.label_6->setEnabled( true ) ;
+	m_ui.cbConfigureUseSystemSupportingEngine->setEnabled( true ) ;
+	m_ui.cbConfigureUseSystemEngine->setEnabled( true ) ;
+
+	m_ui.labelConfigureOptionsToAdd->setEnabled( true ) ;
 	m_ui.label_3->setEnabled( true ) ;
 	m_ui.label_4->setEnabled( true ) ;
 	m_ui.label_5->setEnabled( true ) ;
@@ -1496,6 +1654,15 @@ void configure::enableAll()
 	m_ui.cbconfigureAutoDownload->setEnabled( true ) ;
 	m_ui.cbConfigureNotifyWhenAllDownloadCompltes->setEnabled( true ) ;
 	m_ui.cbConfigureNotifyWhenDownloadComplete->setEnabled( true ) ;
+	m_ui.labelUIScale->setEnabled( true ) ;
+	m_ui.labelUIScaleCurrentValue->setEnabled( true ) ;
+
+	if( !m_scaleButtonPressed ){
+
+		m_ui.pbConfigureScaleDown->setEnabled( true ) ;
+		m_ui.pbConfigureScaleUp->setEnabled( true ) ;
+		m_ui.pbConfigureScaleReset->setEnabled( false ) ;
+	}
 }
 
 void configure::textAlignmentChanged( Qt::LayoutDirection z )
@@ -1504,7 +1671,7 @@ void configure::textAlignmentChanged( Qt::LayoutDirection z )
 	auto b = m_ui.label_3 ;
 	auto c = m_ui.label_4 ;
 	auto d = m_ui.label_5 ;
-	auto e = m_ui.label_6 ;
+	auto e = m_ui.labelConfigureOptionsToAdd ;
 	auto f = m_ui.labelConfigureTextEncoding ;
 	auto g = m_ui.labelConfigureEngines_2 ;
 	auto h = m_ui.labelConfugureUiName ;
@@ -1523,6 +1690,8 @@ void configure::textAlignmentChanged( Qt::LayoutDirection z )
 
 void configure::disableAll()
 {
+	m_ui.cbConfigureUseSystemSupportingEngine->setEnabled( false ) ;
+	m_ui.cbConfigureUseSystemEngine->setEnabled( false ) ;
 	m_ui.cbLibraryTabEnable->setEnabled( false ) ;
 	m_ui.rbUseManualProxy->setEnabled( false ) ;
 	m_ui.rbNoProxy->setEnabled( false ) ;
@@ -1533,7 +1702,7 @@ void configure::disableAll()
 	m_ui.label_3->setEnabled( false ) ;
 	m_ui.label_4->setEnabled( false ) ;
 	m_ui.label_5->setEnabled( false ) ;
-	m_ui.label_6->setEnabled( false ) ;
+	m_ui.labelConfigureOptionsToAdd->setEnabled( false ) ;
 	m_ui.lineEditConfigureTextEncoding->setEnabled( false ) ;
 	m_ui.labelConfigureTextEncoding->setEnabled( false ) ;
 	m_ui.pbOpenThemeFolder->setEnabled( false ) ;
@@ -1589,6 +1758,15 @@ void configure::disableAll()
 	m_ui.cbconfigureAutoDownload->setEnabled( false ) ;
 	m_ui.cbConfigureNotifyWhenAllDownloadCompltes->setEnabled( false ) ;
 	m_ui.cbConfigureNotifyWhenDownloadComplete->setEnabled( false ) ;
+	m_ui.labelUIScale->setEnabled( false ) ;
+	m_ui.labelUIScaleCurrentValue->setEnabled( false ) ;
+
+	if( !m_scaleButtonPressed ){
+
+		m_ui.pbConfigureScaleDown->setEnabled( false ) ;
+		m_ui.pbConfigureScaleUp->setEnabled( false ) ;
+		m_ui.pbConfigureScaleReset->setEnabled( false ) ;
+	}
 }
 
 configure::presetOptions::presetOptions( const Context& ctx,settings& s ) :

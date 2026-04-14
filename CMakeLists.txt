@@ -14,7 +14,7 @@ set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-set( PGR_VERSION "5.4.8" )
+set( PGR_VERSION "5.5.1" )
 set( COPYRIGHT_YEARS "2021-2026" )
 
 INCLUDE(GNUInstallDirs)
@@ -52,9 +52,7 @@ else()
 endif()
 
 if(BUILD_FLATPAK)
-    file( WRITE  ${PROJECT_BINARY_DIR}/flatpak.h "\n#define FLATPAK 1\n" )
 else()
-    file( WRITE  ${PROJECT_BINARY_DIR}/flatpak.h "\n#define FLATPAK 0\n" )
 endif()
 
 include_directories(${PROJECT_BINARY_DIR})
@@ -116,7 +114,8 @@ set(SRC
     src/engines/getsauce.cpp
     src/engines/gallery-dl.cpp
     src/engines/quickjs.cpp
-    src/engines/deno.cpp)
+    src/engines/deno.cpp
+    src/engines/bun.cpp)
 
 set(RESOURCES src/icon.qrc )
 
@@ -247,6 +246,10 @@ SolidCompression=yes
 DisableProgramGroupPage=yes
 OutputBaseFilename=${OutputBaseFilename}
 
+[InstallDelete]
+Type: filesandordirs; Name: \"{app}\\3rdParty\"
+Type: filesandordirs; Name: \"{app}\\translations\"
+
 [Tasks]
 Name: \"desktopicon\"; Description: \"{cm:CreateDesktopIcon}\"; GroupDescription: \"{cm:AdditionalIcons}\"; Flags: unchecked
 Name: \"quicklaunchicon\"; Description: \"{cm:CreateQuickLaunchIcon}\"; GroupDescription: \"{cm:AdditionalIcons}\"; Flags: unchecked; OnlyBelowVersion: 0,6.1
@@ -345,6 +348,10 @@ SolidCompression=yes
 DisableProgramGroupPage=yes
 OutputBaseFilename=${OutputBaseFilename}
 
+[InstallDelete]
+Type: filesandordirs; Name: \"{app}\\3rdParty\"
+Type: filesandordirs; Name: \"{app}\\translations\"
+
 [Tasks]
 Name: \"desktopicon\"; Description: \"{cm:CreateDesktopIcon}\"; GroupDescription: \"{cm:AdditionalIcons}\"; Flags: unchecked
 Name: \"quicklaunchicon\"; Description: \"{cm:CreateQuickLaunchIcon}\"; GroupDescription: \"{cm:AdditionalIcons}\"; Flags: unchecked; OnlyBelowVersion: 0,6.1
@@ -422,7 +429,7 @@ if(APPLE)
     file( COPY translations/ar.qm DESTINATION        "MediaDownloader.app/Contents/Resources/translations/" )
     file( COPY translations/de_DE.qm DESTINATION     "MediaDownloader.app/Contents/Resources/translations/" )
     file( COPY translations/en_US.qm DESTINATION     "MediaDownloader.app/Contents/Resources/translations/" )
-    file( COPY translations/es.qm DESTINATION        "MediaDownloader.app/Contents/Resources/translations/" )
+    file( COPY translations/es_ES.qm DESTINATION     "MediaDownloader.app/Contents/Resources/translations/" )
     file( COPY translations/fr_FR.qm DESTINATION     "MediaDownloader.app/Contents/Resources/translations/" )
     file( COPY translations/it_IT.qm DESTINATION     "MediaDownloader.app/Contents/Resources/translations/" )
     file( COPY translations/ja_JP.qm DESTINATION     "MediaDownloader.app/Contents/Resources/translations/" )
