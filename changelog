@@ -428,3 +428,21 @@ Version 1.2.0(April 1st, 2021)
       - Update Chinese translations.
      [WINDOWS7]
       - Fix a bug that caused a wrong yt-dlp binary to be downloaded and used.
+
+     Version 5.4.9(March 6th, 2026)
+     [ALL]
+      - Add Ui option to disable deno auto updating.
+      - Add a Ui way to change Ui scale factor.
+      - Workout a bug in deno 2.7.0 that prevented MD from updating it.
+
+     Version 5.5.0(March 14th, 2026)
+     [FLATPAK]
+      - Bundle svtplay-dl because its dependencies are now bundled too.
+     [ALL]
+      - Show more info in batch downloader when using svtplay-dl.
+
+     Version 5.5.1(April 14th, 2026)
+     [FLATPAK]
+      - Continue to bundle svtplay-dl dependencies but unbundle svtplay-dl executable.
+     [ALL]
+      - Add GUI options to tell MD to use system binaries or to download its own binaries.

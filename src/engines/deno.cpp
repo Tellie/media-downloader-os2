@@ -19,17 +19,48 @@
 
 #include "deno.h"
 #include "../utility.h"
+#include <QProcess>
 
-QJsonObject deno::init( const QString& name,
-			const QString& configFileName,
-			Logger& logger,
-			const engines::enginePaths& enginePath )
+util::version deno::version( const QString& m )
 {
-	auto m = enginePath.enginePath( configFileName ) ;
+	QProcess cmd ;
+
+	cmd.start( m,{ "-version" } ) ;
+
+	cmd.waitForFinished() ;
+
+	if( cmd.exitCode() == 0 && cmd.exitStatus() == QProcess::ExitStatus::NormalExit ){
+
+		return cmd.readAllStandardOutput().replace( "deno","" ).trimmed() ;
+	}else{
+		return {} ;
+	}
+}
+
+void deno::init( settings& s,Logger& logger,const engines::enginePaths& enginePath )
+{
+	auto m = enginePath.enginePath( "deno.json" ) ;
 
 	if( QFile::exists( m ) ){
 
-		return QJsonObject() ;
+		auto p = enginePath.binPath( "deno" ) ;
+
+		if( QFile::exists( p ) && utility::platformisFlatPak() ){
+
+			if( !s.denoInFlatpakUpdated() ){
+
+				auto e = deno::version( p ) ;
+
+				if( e.valid() && e < "2.6.7" ){
+
+					QFile::remove( p ) ;
+				}else{
+					s.setDenoInFlatpakUpdated( true ) ;
+				}
+			}
+		}
+
+		return ;
 	}
 
 	QJsonObject mainObj ;
@@ -50,7 +81,7 @@ QJsonObject deno::init( const QString& name,
 
 	json.done() ;
 
-	mainObj.insert( "Version","1" ) ;
+	mainObj.insert( "Version","2" ) ;
 
 	mainObj.insert( "DownloadUrl","https://api.github.com/repos/denoland/deno/releases/latest" ) ;
 
@@ -58,7 +89,7 @@ QJsonObject deno::init( const QString& name,
 
 	mainObj.insert( "AutoUpdate",true ) ;
 
-	mainObj.insert( "Name",name ) ;
+	mainObj.insert( "Name","deno" ) ;
 
 	mainObj.insert( "VersionArgument","-version" ) ;
 
@@ -71,8 +102,23 @@ QJsonObject deno::init( const QString& name,
 	mainObj.insert( "LikeYoutubeDl",false ) ;
 
 	engines::file( m,logger ).write( mainObj ) ;
+}
 
-	return mainObj ;
+void deno::remove( Logger&,const engines::enginePaths& enginePath )
+{
+	auto m = enginePath.enginePath( "deno.json" ) ;
+
+	if( QFile::exists( m ) ){
+
+		QFile::remove( m ) ;
+	}
+
+	m = enginePath.binPath( "deno" ) ;
+
+	if( QFile::exists( m ) ){
+
+		QFile::remove( m ) ;
+	}
 }
 
 deno::~deno()
@@ -81,43 +127,56 @@ deno::~deno()
 
 bool deno::foundNetworkUrl( const QString& s )
 {
+	auto e = this->urlFileName( {} ) ;
+
+	if( e.isEmpty() ){
+
+		return false ;
+	}else{
+		return s.contains( e ) ;
+	}
+}
+
+QString deno::urlFileName( const QString& )
+{
 	utility::CPU cpu ;
 
 	if( utility::platformIsWindows() ){
 
 		if( cpu.x86_64() ){
 
-			return s.contains( "deno-x86_64-pc-windows-msvc.zip" ) ;
+			return "deno-x86_64-pc-windows-msvc.zip" ;
 		}
 
-	}else if( utility::platformisFlatPak() ){
-
-		return false ;
-
-	}else if( utility::platformIsLinux() ){
+	}else if( utility::platformIsLinux() || utility::platformisFlatPak() ){
 
 		if( cpu.x86_64() ){
 
-			return s.contains( "deno-x86_64-unknown-linux-gnu.zip" ) ;
+			return "deno-x86_64-unknown-linux-gnu.zip" ;
 
 		}else if( cpu.aarch64() ){
 
-			return s.contains( "deno-aarch64-unknown-linux-gnu.zip" ) ;
+			return "deno-aarch64-unknown-linux-gnu.zip" ;
 		}
 
 	}else if( utility::platformIsOSX() ){
 
 		if( cpu.x86_64() ){
 
-			return s.contains( "deno-x86_64-apple-darwin.zip" ) ;
+			return "deno-x86_64-apple-darwin.zip" ;
 
 		}else if( cpu.aarch64() ){
 
-			return s.contains( "deno-aarch64-apple-darwin.zip" ) ;
+			return "deno-aarch64-apple-darwin.zip" ;
 		}
 	}
 
-	return false ;
+	return {} ;
+}
+
+bool deno::autoUpdate( const engines::engine::baseEngine::onlineVersion&,const util::version& s )
+{
+	return s < "2.6.7" ;
 }
 
 deno::deno( const engines& e,const engines::engine& s,QJsonObject& ) :

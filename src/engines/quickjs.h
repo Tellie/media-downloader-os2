@@ -22,14 +22,13 @@
 class quickjs : public engines::engine::baseEngine
 {
 public:
-	static QJsonObject init( const QString& name,
-				 const QString& configFileName,
-				 Logger& logger,
-				 const engines::enginePaths& enginePath ) ;
+	static QJsonObject init( Logger& logger,const engines::enginePaths& enginePath ) ;
+	static void remove( Logger& logger,const engines::enginePaths& enginePath ) ;
 	~quickjs() ;
 	engines::metadata parseJsonDataFromGitHub( const QJsonDocument& ) override ;
 	engines::engine::baseEngine::removeFilesStatus removeFiles( const QStringList&,const QString& ) override ;
 	bool foundNetworkUrl( const QString& s ) override ;
+	QString urlFileName( const QString& ) override ;
 	QString parseVersionInfo( const utils::qprocess::outPut& ) override ;
 	quickjs( const engines&,const engines::engine&,QJsonObject& ) ;
 private:

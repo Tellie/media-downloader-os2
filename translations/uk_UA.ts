@@ -245,7 +245,7 @@
     </message>
     <message>
         <source>Enable Library Tab</source>
-        <translation>Увімкнути вкладку &apos;Бібліотека&apos;</translation>
+        <translation>Увімкнути вкладку Бібліотека</translation>
     </message>
     <message>
         <source>Maximum Concurrent Downloads</source>
@@ -422,6 +422,34 @@ Exampe 2: ${gateway}:8080</source>
     <message>
         <source>Open Extension Folder</source>
         <translation>Відкрити папку розширень</translation>
+    </message>
+    <message>
+        <source>UI Scale</source>
+        <translation>Масштаб інтерфейсу</translation>
+    </message>
+    <message>
+        <source>A Restart Is Required After Every Change</source>
+        <translation>Після кожної зміни потрібен перезапуск</translation>
+    </message>
+    <message>
+        <source>Scale Up</source>
+        <translation>Збільшити масштаб</translation>
+    </message>
+    <message>
+        <source>Scale Down</source>
+        <translation>Зменшити масштаб</translation>
+    </message>
+    <message>
+        <source>Reset</source>
+        <translation>Скинути</translation>
+    </message>
+    <message>
+        <source>Use Deno From System If Available</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Use Extension From System If Available</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>
@@ -728,7 +756,7 @@ Exampe 2: ${gateway}:8080</source>
     </message>
     <message>
         <source>Network Failed To Respond Within %1 seconds</source>
-        <translation>Мережа не відповідає %1 сек.</translation>
+        <translation>Мережа не відповідає %1 секунд</translation>
     </message>
     <message>
         <source>Failed to download, Following path can not be created: </source>
@@ -769,10 +797,6 @@ Exampe 2: ${gateway}:8080</source>
     <message>
         <source>Windows&apos; Secure Channel</source>
         <translation>Захищений канал Windows</translation>
-    </message>
-    <message>
-        <source>File Not Found</source>
-        <translation>Файл не знайдено</translation>
     </message>
     <message>
         <source>Download complete</source>
@@ -1102,6 +1126,14 @@ Exampe 2: ${gateway}:8080</source>
         <source>Failed To Find &quot;bsdtar&quot; or &quot;unzip&quot; Executable</source>
         <translation>Не вдалося знайти виконуваний файл &quot;bsdtar&quot; або &quot;unzip&quot;</translation>
     </message>
+    <message>
+        <source>New Ui Scale Factor: %1</source>
+        <translation>Новий коефіцієнт масштабу інтерфейсу: %1</translation>
+    </message>
+    <message>
+        <source>Getting</source>
+        <translation>Отримання</translation>
+    </message>
 </context>
 <context>
     <name>basicdownloader</name>
@@ -1235,6 +1267,18 @@ Exampe 2: ${gateway}:8080</source>
         <source>Set Path To Cookie File</source>
         <translation>Шлях до файлу кукі</translation>
     </message>
+    <message>
+        <source>Current Ui Scale Factor: %1</source>
+        <translation>Поточний коефіцієнт масштабу інтерфейсу: %1</translation>
+    </message>
+    <message>
+        <source>Text Encoding</source>
+        <translation>Кодування тексту</translation>
+    </message>
+    <message>
+        <source>Enable AutoDownloading</source>
+        <translation>Увімкніти автозавантаження</translation>
+    </message>
 </context>
 <context>
     <name>library</name>
@@ -1299,7 +1343,7 @@ Exampe 2: ${gateway}:8080</source>
     </message>
     <message>
         <source>Show All</source>
-        <translation type="unfinished"></translation>
+        <translation>Показати все</translation>
     </message>
 </context>
 <context>

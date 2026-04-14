@@ -266,7 +266,6 @@ void basicdownloader::updateEnginesList( const QStringList& e )
 
 	auto m = this->defaultEngineName() ;
 	auto s = settings::tabName::basic ;
-
 	utility::setUpdefaultEngine( comboBox,m,m_settings,s ) ;
 }
 
@@ -350,7 +349,7 @@ void basicdownloader::setContextMenuForDirectUrl()
 		{
 		public:
 			meaw( tableMiniWidget< engines::engine::baseEngine::mediaInfo,5 >& m ) :
-			    m_table( m )
+				m_table( m )
 			{
 			}
 			const QJsonObject& stuffAt( int s ) const
@@ -477,8 +476,6 @@ void basicdownloader::download( const basicdownloader::engine& eng,
 		utility::updateOptionsStruct str{ mm,engine,ss,args,{},false,urls,{},m_ctx } ;
 
 		auto opts = utility::updateOptions( str ) ;
-
-		opts.append( engine.extraArguments() ) ;
 
 		this->run( eng,opts,args.credentials(),false ) ;
 	} ) ;

@@ -255,9 +255,14 @@ void networkAccess::updateMediaDownloader( networkAccess::updateMDOptions md ) c
 
 		this->get( url,md.move(),this,&networkAccess::uMediaDownloaderM ) ;
 	}else{
+		auto bar = utility::barLine() ;
+
 		auto m = QObject::tr( "Failed To Open Path For Writing: %1" ).arg( md.tmpFile ) ;
 
+		this->post( m_appName,bar,md.id ) ;
 		this->post( m_appName,m,md.id ) ;
+		this->post( m_appName,"Err: " + utility::errorMessage(),md.id ) ;
+		this->post( m_appName,bar,md.id ) ;
 
 		md.status.done() ;
 
@@ -558,16 +563,20 @@ void networkAccess::downloadP2( networkAccess::Opts2& opts2,
 
 void networkAccess::download( networkAccess::Opts opts ) const
 {
+	const auto& engine = opts.iter.engine() ;
+
 	if( opts.metadata.url().isEmpty() || opts.metadata.fileName().isEmpty() ){
 
-		auto m = QObject::tr( "File Not Found" ) ;
+		auto a = "Download Failed: Invalid Url or FileName Not Found" ;
+		auto b = "Url: " + opts.metadata.url() ;
+		auto c = "Metadata File Name: " + opts.metadata.fileName() ;
+		auto d = "Online File Name: " + engine.urlFileName( opts.metadata.version() ) ;
+		auto s = utility::barLine() ;
 
-		opts.networkError = QObject::tr( "Download Failed" ) + ": " + m ;
+		opts.networkError.add( s,a,b,c,d,s ) ;
 
 		return this->finished( opts.move() ) ;
 	}
-
-	const auto& engine = opts.iter.engine() ;
 
 	engine.updateEnginePaths( m_ctx,opts.filePath,opts.exeBinPath,opts.tempPath ) ;
 
@@ -662,9 +671,12 @@ void networkAccess::finished( networkAccess::Opts str ) const
 {
 	const auto& engine = str.iter.engine() ;
 
-	if( !str.networkError.isEmpty() ){
+	if( str.networkError.isNotEmpty() ){
 
-		this->post( engine.name(),str.networkError,str.id ) ;
+		for( const auto& it : str.networkError ){
+
+			this->post( engine.name(),it,str.id ) ;
+		}
 
 		m_tabManager.enableAll() ;
 

@@ -29,6 +29,7 @@
 #include "engines/svtplay-dl.h"
 #include "engines/you-get.h"
 #include "engines/deno.h"
+#include "engines/bun.h"
 #include "engines/quickjs.h"
 #include "engines/getsauce.h"
 
@@ -45,6 +46,8 @@
 #include <QDesktopServices>
 #include <QNetworkProxyFactory>
 #include <QDir>
+
+#include <cstring>
 
 QStringList engines::dirEntries( const QString& e ) const
 {
@@ -72,13 +75,6 @@ QProcessEnvironment engines::getEnvPaths() const
 		s = mm ;
 
 		auto m = this->dirEntries( mm ) ;
-
-		m.removeOne( "aria2-1.36.0-win-32bit-build1" ) ;
-		m.removeOne( "aria2-1.37.0-win-32bit-build1" ) ;
-		m.removeOne( "ffmpeg-n5.0-latest-win32-gpl-shared-5.0" ) ;
-		m.removeOne( "ffmpeg-n6.0-latest-win32-gpl-shared-6.0" ) ;
-		m.removeOne( "python-3.8.10-embed-win32" ) ;
-		m.removeOne( "wget-1.21.3-win32" ) ;
 
 		for( const auto& it : util::asConst( m ) ){
 
@@ -139,7 +135,7 @@ engines::engines( Logger& l,const engines::enginePaths& paths,settings& s,int id
 	m_settings( s ),
 	m_enginePaths( paths ),
 	m_processEnvironment( this->getEnvPaths() ),
-	m_defaultEngine( l,m_enginePaths )
+	m_defaultEngine( *this,l,m_enginePaths )
 {
 	this->updateEngines( true,id ) ;
 
@@ -516,6 +512,10 @@ void engines::updateEngines( bool addAll,int id )
 
 			it.setBackend< deno >( engines ) ;
 
+		}else if( name.contains( "bun" ) ){
+
+			it.setBackend< bun >( engines ) ;
+
 		}else if( name.contains( "quickjs" ) ){
 
 			it.setBackend< quickjs >( engines ) ;
@@ -553,7 +553,7 @@ const engines::engine& engines::defaultEngine( const QString& name,int id ) cons
 
 			return m_backends[ 0 ] ;
 		}else{
-			static engines::engine engine ;
+			static engines::engine engine( *this ) ;
 
 			return engine ;
 		}
@@ -600,24 +600,42 @@ bool engines::filePathIsValid( const QFileInfo& info )
 	return info.exists() && info.isFile() ;
 }
 
-QString engines::findExecutable( const QString& exeName,const QStringList& paths,QFileInfo& info ) const
+QString engines::findExecutable( const QString& exeName,
+				 const QStringList& paths,
+				 QFileInfo& info,
+				 bool searchFromBeginning ) const
 {
-	for( const auto& it : paths ){
+	if( searchFromBeginning ){
 
-		auto m = it + "/" + exeName ;
+		for( const auto& it : paths ){
 
-		info.setFile( m ) ;
+			auto m = it + "/" + exeName ;
 
-		if( engines::filePathIsValid( info ) ){
+			info.setFile( m ) ;
 
-			return m ;
+			if( engines::filePathIsValid( info ) ){
+
+				return m ;
+			}
+		}
+	}else{
+		for( int i = paths.size() - 1 ; i >= 0 ; i-- ){
+
+			auto m = paths[ i ] + "/" + exeName ;
+
+			info.setFile( m ) ;
+
+			if( engines::filePathIsValid( info ) ){
+
+				return m ;
+			}
 		}
 	}
 
 	return {} ;
 }
 
-QString engines::findExecutable( const QString& exeName ) const
+QString engines::findExecutable( const QString& exeName,bool searchFromBeginning ) const
 {
 	if( utility::platformIsLikeWindows() && exeName == "media-downloader.exe" ){
 
@@ -635,18 +653,18 @@ QString engines::findExecutable( const QString& exeName ) const
 
 		auto paths = this->processEnvironment().value( "PATH" ).split( ';' ) ;
 
-		auto m = this->findExecutable( exeName,paths,info ) ;
+		auto m = this->findExecutable( exeName,paths,info,searchFromBeginning ) ;
 
 		if( m.isEmpty() && !exeName.endsWith( ".exe" ) ){
 
-			m = this->findExecutable( exeName + ".exe",paths,info ) ;
+			m = this->findExecutable( exeName + ".exe",paths,info,searchFromBeginning ) ;
 		}
 
 		return m ;
 	}else{
 		auto paths = this->processEnvironment().value( "PATH" ).split( ':' ) ;
 
-		return this->findExecutable( exeName,paths,info ) ;
+		return this->findExecutable( exeName,paths,info,searchFromBeginning ) ;
 	}
 }
 
@@ -784,20 +802,18 @@ void engines::engine::updateOptions()
 {
 	if( utility::platformIsWindows7() ){
 
-		m_extraArguments = this->toStringList( m_jsonObject.value( "ExtraArgumentsWin7" ) ) ;
+		m_extraArguments = this->toStringList( m_jsonObject.value( "ExtraOptionsWin7" ) ) ;
 
-	}else if( utility::platformisFlatPak() ){
+	}else if( utility::platformisFlatPak() || utility::platformIsAppImage() ){
 
-		m_extraArguments = this->toStringList( m_jsonObject.value( "ExtraArgumentsFlatpak" ) ) ;
-
-		if( m_extraArguments.isEmpty() && this->likeYtDlp() ){
-
-			m_extraArguments.append( "--no-js-runtimes" ) ;
-			m_extraArguments.append( "--js-runtimes" ) ;
-			m_extraArguments.append( "quickjs" ) ;
-		}
+		m_extraArguments = this->toStringList( m_jsonObject.value( "ExtraOptionsFlatpakAppImage" ) ) ;
 	}else{
-		m_extraArguments = this->toStringList( m_jsonObject.value( "ExtraArguments" ) ) ;
+		m_extraArguments = this->toStringList( m_jsonObject.value( "ExtraOptions" ) ) ;
+	}
+
+	if( m_extraArguments.isEmpty() && this->likeYtDlp() ){
+
+		this->setJsRuntime() ;
 	}
 
 	m_controlStructure                = m_jsonObject.value( "ControlJsonStructure" ).toObject() ;
@@ -820,6 +836,57 @@ void engines::engine::updateOptions()
 	m_defaultCommentsCmdOptions       = this->toStringList( m_jsonObject.value( "DefaultCommentsCmdOptions" ) ) ;
 	m_defaultSubstitlesCmdOptions     = this->toStringList( m_jsonObject.value( "DefaultSubstitlesCmdOptions" ) ) ;
 	m_defaultSubtitleDownloadOptions  = this->toStringList( m_jsonObject.value( "DefaultSubtitleDownloadOptions" ) ) ;
+}
+
+void engines::engine::setJsRuntime()
+{
+	if( utility::platformIsWindows7() ){
+
+		engines::engine::jsRuntimeInstalled js( m_parent,"quickjs" ) ;
+
+		if( js.valid() ){
+
+			m_extraArguments.append( "--no-js-runtimes" ) ;
+			m_extraArguments.append( "--js-runtimes" ) ;
+
+			m_extraArguments.append( js.name() + ":" + js.exePath() ) ;
+		}
+
+	}else if( utility::platformisFlatPak() || utility::platformIsAppImage() ){
+
+		if( m_parent.m_settings.flatpackUseDenoRuntime() ){
+
+			engines::engine::jsRuntimeInstalled js( m_parent,"deno" ) ;
+
+			if( js.valid() ){
+
+				m_extraArguments.append( "--no-js-runtimes" ) ;
+				m_extraArguments.append( "--js-runtimes" ) ;
+
+				m_extraArguments.append( js.name() + ":" + js.exePath() ) ;
+			}
+		}else{
+			engines::engine::jsRuntimeInstalled js( m_parent ) ;
+
+			if( js.valid() ){
+
+				m_extraArguments.append( "--no-js-runtimes" ) ;
+				m_extraArguments.append( "--js-runtimes" ) ;
+
+				m_extraArguments.append( js.name() + ":" + js.exePath() ) ;
+			}
+		}
+	}else{
+		engines::engine::jsRuntimeInstalled js( m_parent ) ;
+
+		if( js.valid() ){
+
+			m_extraArguments.append( "--no-js-runtimes" ) ;
+			m_extraArguments.append( "--js-runtimes" ) ;
+
+			m_extraArguments.append( js.name() + ":" + js.exePath() ) ;
+		}
+	}
 }
 
 QJsonObject engines::engine::getCmd( const QJsonObject& cmd,const QString& arc )
@@ -906,25 +973,23 @@ engines::engine::cmd::cmd( const QJsonObject& obj,
 {
 }
 
-QJsonObject engines::engine::getOpts( const util::Json& e ) const
+QJsonObject engines::engine::getOpts( const util::Json& e,settings& s ) const
 {
 	auto obj = e.doc().object() ;
 
 	auto name = obj.value( "Name" ).toString() ;
 
-	if( name == "deno" || name == "quickjs" ){
-
-		if( name == "quickjs" && utility::platformisFlatPak() ){
-
-			obj.insert( "DownloadUrl",QString() ) ;
-		}
+	if( name == "quickjs" || name == "bun" ){
 
 		obj.insert( "SupportingEngine",true ) ;
-	}else{
-		obj.insert( "SupportingEngine",false ) ;
-	}
 
-	if( name == "svtplay-dl" ){
+	}else if( name == "deno" ){
+
+		obj.insert( "SupportingEngine",true ) ;
+
+		obj.insert( "AutoUpdate",s.denoEnableAutoDownload() ) ;
+
+	}else if( name == "svtplay-dl" ){
 
 		obj.insert( "ArchiveContainsFolder",utility::platformIsWindows() ) ;
 
@@ -939,7 +1004,7 @@ engines::engine::engine( Logger& logger,
 			 const util::Json& json,
 			 const engines& engines,
 			 int id ) :
-	m_jsonObject( this->getOpts( json ) ),
+	m_jsonObject( this->getOpts( json,engines.Settings() ) ),
 	m_line( m_jsonObject.value( "VersionStringLine" ).toInt() ),
 	m_position( m_jsonObject.value( "VersionStringPosition" ).toInt() ),
 	m_valid( true ),
@@ -950,7 +1015,8 @@ engines::engine::engine( Logger& logger,
 	m_versionArgument( m_jsonObject.value( "VersionArgument" ).toString() ),
 	m_name( m_jsonObject.value( "Name" ).toString() ),
 	m_configVersion( m_jsonObject.value( "Version" ).toString() ),
-	m_exeFolderPath( m_jsonObject.value( "BackendPath" ).toString() )
+	m_exeFolderPath( m_jsonObject.value( "BackendPath" ).toString() ),
+	m_parent( engines )
 {
 	auto defaultPath = utility::stringConstants::defaultPath() ;
 	auto backendPath = utility::stringConstants::backendPath() ;
@@ -995,7 +1061,23 @@ void engines::engine::parseMultipleCmdArgs( Logger& logger,
 					    const engines::enginePaths&,
 					    int id )
 {
-	auto m = engines.findExecutable( m_commandName ) ;
+	QString m ;
+
+	if( this->supportingEngine() ){
+
+		if( m_parent.m_settings.useSystemSupportingEngine() ){
+
+			m = engines.findExecutable( m_commandName,false ) ;
+		}else{
+			m = engines.findExecutable( m_commandName,true ) ;
+		}
+
+	}else if( m_parent.m_settings.useSystemEngine() ){
+
+		m = engines.findExecutable( m_commandName,false ) ;
+	}else{
+		m = engines.findExecutable( m_commandName,true ) ;
+	}
 
 	if( m.isEmpty() ){
 
@@ -1006,16 +1088,12 @@ void engines::engine::parseMultipleCmdArgs( Logger& logger,
 			m_valid = false ;
 			logger.add( utility::failedToFindExecutableString( m_commandName ),id ) ;
 		}
-	}else{
+	}else{		
 		auto a = this->validDownloadUrl() ;
 		auto b = !m_commandName.startsWith( "media-downloader" ) ;
 		auto c = !m_exeFolderPath.isEmpty() ;
 
 		if( a && b && c ){
-
-			/*
-			 * backends that are internally managed
-			 */
 
 			if( m.startsWith( m_exeFolderPath ) ){
 				/*
@@ -1023,16 +1101,29 @@ void engines::engine::parseMultipleCmdArgs( Logger& logger,
 				 */
 				m_exePath = m ;
 			}else{
-				/*
-				 * backend not found in internal bin folder, lets assume its path
-				 * and hope for the best
-				 */
-				m_exePath = m_exeFolderPath + "/" + m_commandName ;
+				if( this->supportingEngine() ){
+
+					if( m_parent.m_settings.useSystemSupportingEngine() ){
+
+						m_downloadUrl.clear() ;
+						m_exePath = m ;
+					}else{
+						m_exePath = m_exeFolderPath + "/" + m_commandName ;
+					}
+
+				}else if( m_parent.m_settings.useSystemEngine() ){
+
+					m_downloadUrl.clear() ;
+					m_exePath = m ;
+				}else{
+					m_exePath = m_exeFolderPath + "/" + m_commandName ;
+				}
 			}
 		}else{
 			/*
 			 * backends that are managed outside like wget or aria2c
 			 */
+			m_downloadUrl.clear() ;
 			m_exePath = m ;
 		}
 	}
@@ -1160,6 +1251,17 @@ QString engines::engine::versionString( const QString& data ) const
 			if( m == "N-121066-g189d0b83b2-20250915" ){
 
 				m = "n8.1-dev-121066-g189d0b83b2-20250915" ;
+
+			}else if( m == "2.7.0+fb4db33" ){
+
+				//Deno 2.7.0 has a bad version string
+
+				m = "2.7.0" ;
+
+			}else if( m == "0+untagged.1.g8a26635" ){
+
+				//we are using a git version of svtplay-dl
+				m = "4.173" ;
 			}
 
 			return m ;
@@ -1574,6 +1676,12 @@ bool engines::engine::baseEngine::updateVersionInfo()
 	return false ;
 }
 
+bool engines::engine::baseEngine::autoUpdate( const engines::engine::baseEngine::onlineVersion&,
+					      const util::version& )
+{
+	return false ;
+}
+
 QByteArray engines::engine::baseEngine::parseError( const QByteArray& )
 {
 	return {} ;
@@ -1660,6 +1768,16 @@ QString engines::engine::baseEngine::parseVersionInfo( const utils::qprocess::ou
 
 void engines::engine::baseEngine::updateLocalOptions( QStringList& )
 {
+}
+
+bool engines::engine::baseEngine::bundledEngine()
+{
+	return false ;
+}
+
+bool engines::engine::baseEngine::engineRemovable()
+{
+	return true ;
 }
 
 engines::engine::baseEngine::removeFilesStatus engines::engine::baseEngine::removeFiles( const QStringList& e,const QString& )
@@ -1778,6 +1896,11 @@ engines::engine::baseEngine::onlineVersion engines::engine::baseEngine::versionI
 bool engines::engine::baseEngine::foundNetworkUrl( const QString& s )
 {
 	return s == m_engine.commandName() ;
+}
+
+QString engines::engine::baseEngine::urlFileName( const QString& )
+{
+	return m_engine.commandName() ;
 }
 
 engines::engine::baseEngine::renameArchiveFolderStatus
@@ -2506,29 +2629,61 @@ void engines::engine::baseEngine::timer::reset()
 	m_startTime = engines::engine::baseEngine::timer::currentTime() ;
 }
 
-engines::configDefaultEngine::configDefaultEngine( Logger&logger,const enginePaths& enginePath ) :
+engines::configDefaultEngine::configDefaultEngine( const engines& engs,Logger& logger,const enginePaths& enginePath ) :
 	m_name( "yt-dlp" ),
-	m_configFileName( m_name + ".json" )
+	m_configFileName( m_name + ".json" ),
+	m_parent( engs )
 {
 	yt_dlp::init( this->name(),this->configFileName(),logger,enginePath ) ;
 
 	if( utility::platformIsWindows() ){
 
-		aria2c::init( "aria2c","aria2c.json",logger,enginePath ) ;
-		wget::init( "wget","wget.json",logger,enginePath ) ;
+		aria2c::init( logger,enginePath ) ;
+		wget::init( logger,enginePath ) ;
 
 		if( utility::platformisLegacyWindows() ){
 
-			quickjs::init( "quickjs","quickjs.json",logger,enginePath ) ;
+			quickjs::init( logger,enginePath ) ;
 		}else{
-			deno::init( "deno","deno.json",logger,enginePath ) ;
+			deno::init( m_parent.m_settings,logger,enginePath ) ;
 		}
 
-	}else if( utility::platformisFlatPak() ){
+	}else if( utility::platformIsAppImage() || utility::platformisFlatPak() ){
 
-		quickjs::init( "quickjs","quickjs.json",logger,enginePath ) ;
+		auto name = engines::engine::jsRuntimeInstalled( m_parent ).name() ;
+
+		if( name == "deno" ){
+
+			deno::init( m_parent.m_settings,logger,enginePath ) ;
+			bun::remove( logger,enginePath ) ;
+			quickjs::remove( logger,enginePath ) ;
+
+		}else if( name == "bun" ){
+
+			bun::init( m_parent.m_settings,logger,enginePath ) ;
+			deno::remove( logger,enginePath ) ;
+			quickjs::remove( logger,enginePath ) ;
+
+		}else if( name == "quickjs" ){
+
+			quickjs::init( logger,enginePath ) ;
+			deno::remove( logger,enginePath ) ;
+			bun::remove( logger,enginePath ) ;
+		}else{
+			quickjs::init( logger,enginePath ) ;
+			deno::remove( logger,enginePath ) ;
+			bun::remove( logger,enginePath ) ;
+		}
+
+	}else if( utility::platformIsLinux() && utility::CPU().x86_32() ){
+
+		quickjs::init( logger,enginePath ) ;
+		deno::remove( logger,enginePath ) ;
+		bun::remove( logger,enginePath ) ;
 	}else{
-		deno::init( "deno","deno.json",logger,enginePath ) ;
+		deno::init( m_parent.m_settings,logger,enginePath ) ;
+		bun::remove( logger,enginePath ) ;
+		quickjs::remove( logger,enginePath ) ;
 	}
 }
 
@@ -2648,22 +2803,37 @@ QString engines::proxySettings::toString( const QNetworkProxy& e ) const
 	}
 }
 
-void engines::engine::baseEngine::optionsEnvironment::update( QString& s ) const
-{
-	for( const auto& it : m_pairs ){
-
-		s += "\nEnv: " + it.key + "=" + it.value  ;
-	}
-}
-
-QProcessEnvironment engines::engine::baseEngine::optionsEnvironment::update( const QProcessEnvironment& e ) const
+QProcessEnvironment engines::engine::baseEngine::optionsEnvironment::update( const QProcessEnvironment& e,QString& s ) const
 {
 	auto m = e ;
 
 	for( const auto& it : m_pairs ){
 
+		s += "\nEnv: " + it.key + "=" + it.value  ;
+
 		m.insert( it.key,it.value ) ;
 	}
 
 	return m ;
+}
+
+engines::engine::jsRuntimeInstalled::jsRuntimeInstalled( const engines& e )
+{
+	std::array< entry,3 > list = { { { "deno" },{ "bun" },{ "quickjs","qjs" } } } ;
+
+	this->search( e,list,!e.Settings().useSystemSupportingEngine() ) ;
+}
+
+engines::engine::jsRuntimeInstalled::jsRuntimeInstalled( const engines& e,const char * s )
+{
+	if( std::strcmp( s,"quickjs" ) == 0 ){
+
+		std::array< entry,1 > list = { { { "quickjs","qjs" } } } ;
+
+		this->search( e,list,!e.Settings().useSystemSupportingEngine() ) ;
+	}else{
+		std::array< entry,1 > list =  { { s } } ;
+
+		this->search( e,list,!e.Settings().useSystemSupportingEngine() ) ;
+	}
 }

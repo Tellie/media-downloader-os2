@@ -20,12 +20,9 @@
 #include "quickjs.h"
 #include "../utility.h"
 
-QJsonObject quickjs::init( const QString& name,
-			   const QString& configFileName,
-			   Logger& logger,
-			   const engines::enginePaths& enginePath )
+QJsonObject quickjs::init( Logger& logger,const engines::enginePaths& enginePath )
 {
-	auto m = enginePath.enginePath( configFileName ) ;
+	auto m = enginePath.enginePath( "quickjs.json" ) ;
 
 	if( QFile::exists( m ) ){
 
@@ -54,7 +51,7 @@ QJsonObject quickjs::init( const QString& name,
 
 	mainObj.insert( "AutoUpdate",true ) ;
 
-	mainObj.insert( "Name",name ) ;
+	mainObj.insert( "Name","quickjs" ) ;
 
 	mainObj.insert( "VersionArgument","--version" ) ;
 
@@ -71,6 +68,23 @@ QJsonObject quickjs::init( const QString& name,
 	return mainObj ;
 }
 
+void quickjs::remove( Logger&,const engines::enginePaths& enginePath )
+{
+	auto m = enginePath.enginePath( "quickjs.json" ) ;
+
+	if( QFile::exists( m ) ){
+
+		QFile::remove( m ) ;
+	}
+
+	//m = enginePath.binPath( "qjs" ) ;
+
+	//if( QFile::exists( m ) ){
+
+	//	QFile::remove( m ) ;
+	//}
+}
+
 quickjs::~quickjs()
 {
 }
@@ -81,6 +95,11 @@ QString quickjs::namePrefix()
 	QString arch     = utility::CPU().x86_32() ? "-i686" : "-x86_64" ;
 
 	return "quickjs-" + platform + arch ;
+}
+
+QString quickjs::urlFileName( const QString& version )
+{
+	return this->namePrefix() + "-" + version + ".zip" ;
 }
 
 engines::metadata quickjs::parseJsonDataFromGitHub( const QJsonDocument& e )
@@ -95,6 +114,7 @@ engines::metadata quickjs::parseJsonDataFromGitHub( const QJsonDocument& e )
 		QJsonObject obj ;
 
 		obj.insert( "browser_download_url",url ) ;
+		obj.insert( "tag_name",version ) ;
 		obj.insert( "name",fileName ) ;
 		obj.insert( "digest","" ) ;
 		obj.insert( "size",0 ) ;
@@ -147,7 +167,7 @@ quickjs::quickjs( const engines& e,const engines::engine& s,QJsonObject& ) :
 {
 	if( utility::platformisFlatPak() ){
 
-		auto path = e.Settings().flatpakIntance().appDataLocation() + "/bin/qjs";
+		auto path = e.Settings().flatpakIntance().appDataLocation() + "/bin/qjs" ;
 
 		if( QFile::exists( path ) ){
 

@@ -358,7 +358,7 @@ Per aggiungere più playlist, separale con uno spazio o una nuova riga</translat
     </message>
     <message>
         <source>Are You Sure You Want To Reset These Options To Their Defaults?</source>
-        <translation>Sei sicuro di voler reimpostare queste opzioni ai valori predefiniti?</translation>
+        <translation>Vuoi reimpostare queste opzioni ai valori predefiniti?</translation>
     </message>
     <message>
         <source>No</source>
@@ -423,6 +423,34 @@ Per aggiungere più playlist, separale con uno spazio o una nuova riga</translat
     <message>
         <source>Open Extension Folder</source>
         <translation>Apri cartella estensione</translation>
+    </message>
+    <message>
+        <source>UI Scale</source>
+        <translation>Scala UI</translation>
+    </message>
+    <message>
+        <source>A Restart Is Required After Every Change</source>
+        <translation>Dopo ogni modifica è necessario un riavvio</translation>
+    </message>
+    <message>
+        <source>Scale Up</source>
+        <translation>Aumenta scala</translation>
+    </message>
+    <message>
+        <source>Scale Down</source>
+        <translation>Diminuisci scala</translation>
+    </message>
+    <message>
+        <source>Reset</source>
+        <translation>Ripristina</translation>
+    </message>
+    <message>
+        <source>Use Deno From System If Available</source>
+        <translation>Usa Deno dal sistema se disponibile</translation>
+    </message>
+    <message>
+        <source>Use Extension From System If Available</source>
+        <translation>Usa estensione dal sistema se disponibile</translation>
     </message>
 </context>
 <context>
@@ -782,10 +810,6 @@ Per maggiori dettagli vedi la GNU (General Public License).</translation>
         <translation>Aggiornamento completato, riavvia per usare la nuova versione</translation>
     </message>
     <message>
-        <source>File Not Found</source>
-        <translation>File non trovato</translation>
-    </message>
-    <message>
         <source>Dutch (Netherlands)</source>
         <translation>Olandese (Paesi Bassi)</translation>
     </message>
@@ -1105,6 +1129,14 @@ Per maggiori dettagli vedi la GNU (General Public License).</translation>
         <source>Failed To Find &quot;bsdtar&quot; or &quot;unzip&quot; Executable</source>
         <translation>Impossibile trovare l&apos;eseguibile &quot;bsdtar&quot; o &quot;unzip&quot;</translation>
     </message>
+    <message>
+        <source>New Ui Scale Factor: %1</source>
+        <translation>Nuovo fattore scala UI: %1</translation>
+    </message>
+    <message>
+        <source>Getting</source>
+        <translation>Ottenimento</translation>
+    </message>
 </context>
 <context>
     <name>basicdownloader</name>
@@ -1238,6 +1270,18 @@ Per maggiori dettagli vedi la GNU (General Public License).</translation>
         <source>Set Path To Cookie File</source>
         <translation>Imposta percorso file cookie</translation>
     </message>
+    <message>
+        <source>Current Ui Scale Factor: %1</source>
+        <translation>Attuale fattore scala UI: %1</translation>
+    </message>
+    <message>
+        <source>Text Encoding</source>
+        <translation>Codifica testo</translation>
+    </message>
+    <message>
+        <source>Enable AutoDownloading</source>
+        <translation>Abilita download automatico</translation>
+    </message>
 </context>
 <context>
     <name>library</name>
@@ -1255,11 +1299,11 @@ Per maggiori dettagli vedi la GNU (General Public License).</translation>
     </message>
     <message>
         <source>Are You Sure You Want To Delete Below File?</source>
-        <translation>Sei sicuro di voler eliminare il file indicato qui sotto?</translation>
+        <translation>Vuoi eliminare il file indicato qui sotto?</translation>
     </message>
     <message>
         <source>Are You Sure You Want To Delete Below Folder?</source>
-        <translation>Sei sicuro di voler eliminare la cartella indicate qui sotto?</translation>
+        <translation>Vuoi eliminare la cartella indicate qui sotto?</translation>
     </message>
     <message>
         <source>Yes</source>
@@ -1275,7 +1319,7 @@ Per maggiori dettagli vedi la GNU (General Public License).</translation>
     </message>
     <message>
         <source>Are You Sure You Want To Delete All Files And Folders?</source>
-        <translation>Sei sicuro di voler eliminare tutti i file e le cartelle?</translation>
+        <translation>Vuoi eliminare tutti i file e le cartelle?</translation>
     </message>
     <message>
         <source>Rename File To Below Text</source>
