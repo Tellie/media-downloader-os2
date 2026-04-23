@@ -1515,6 +1515,10 @@ public:
 		{
 			return m_supportingEngine ;
 		}
+		bool updatableSupportingEngine() const
+		{
+			return m_updatableSupportingEngine ;
+		}
 		bool replaceOutputWithProgressReport() const
 		{
 			return m_replaceOutputWithProgressReport ;
@@ -1582,6 +1586,7 @@ public:
 		bool m_autoUpdate ;
 		bool m_canDownloadPlaylist ;
 		bool m_supportingEngine ;
+		bool m_updatableSupportingEngine ;
 		bool m_archiveContainsFolder = false ;
 		bool m_replaceOutputWithProgressReport ;
 		mutable bool m_broken = false ;
@@ -1747,7 +1752,7 @@ private:
 	util::result< engines::engine > getSupportingEngineByName( const QString& ) const ;
 	util::result_ref< const engines::engine& > getCompleteEngineByPath( const QString& ) const ;
 	void engineAdd( const QString&,util::result< engines::engine >,int ) ;
-	QString findExecutable( const QString&,const QStringList&,QFileInfo&,bool searchFromBeginning = true ) const ;
+	QString findExecutable( const QString&,const QStringList&,bool searchFromBeginning = true ) const ;
 	QProcessEnvironment getEnvPaths() const ;
 	QStringList dirEntries( const QString& ) const ;
 	Logger& m_logger ;
@@ -1757,6 +1762,23 @@ private:
 	QProcessEnvironment m_processEnvironment ;
 	engines::proxySettings m_networkProxy ;
 	int m_bannerId ;
+	template< typename Iter >
+	QString findExecutable( Iter iter,const QString& exeName,QFileInfo& info ) const
+	{
+		while( iter.hasNext() ){
+
+			auto m = iter.next() + "/" + exeName ;
+
+			info.setFile( m ) ;
+
+			if( engines::filePathIsValid( info ) ){
+
+				return QDir::fromNativeSeparators( m ) ;
+			}
+		}
+
+		return {} ;
+	}
 	class configDefaultEngine
 	{
 	public:

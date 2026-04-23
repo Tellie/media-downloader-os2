@@ -1390,9 +1390,9 @@ void batchdownloader::showSubtitles( const QByteArray& e )
 
 				return {} ;
 			}else{
-				auto iter = utility::reverse( m_formats ) ;
+				auto iter = utility::reverseIterator( m_formats ) ;
 
-				auto obj = iter.nextAsValue().toObject() ;
+				auto obj = iter.next().toObject() ;
 
 				auto name = "Name: " + obj.value( "name" ).toString() ;
 
@@ -1510,7 +1510,7 @@ void batchdownloader::saveSubtitles()
 
 	QMenu m ;
 
-	utility::reverse( subtitles ).forEach( [ & ]( const QJsonValue& v ){
+	utility::reverseIterator( subtitles ).forEach( [ & ]( const QJsonValue& v ){
 
 		ee.emplace_back( v.toObject() ) ;
 

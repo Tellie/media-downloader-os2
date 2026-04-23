@@ -600,39 +600,16 @@ bool engines::filePathIsValid( const QFileInfo& info )
 	return info.exists() && info.isFile() ;
 }
 
-QString engines::findExecutable( const QString& exeName,
-				 const QStringList& paths,
-				 QFileInfo& info,
-				 bool searchFromBeginning ) const
+QString engines::findExecutable( const QString& exeName,const QStringList& paths,bool fromBeginning ) const
 {
-	if( searchFromBeginning ){
+	QFileInfo info( exeName ) ;
 
-		for( const auto& it : paths ){
+	if( fromBeginning ){
 
-			auto m = it + "/" + exeName ;
-
-			info.setFile( m ) ;
-
-			if( engines::filePathIsValid( info ) ){
-
-				return m ;
-			}
-		}
+		return this->findExecutable( utility::forwardIterator( paths ),exeName,info ) ;
 	}else{
-		for( int i = paths.size() - 1 ; i >= 0 ; i-- ){
-
-			auto m = paths[ i ] + "/" + exeName ;
-
-			info.setFile( m ) ;
-
-			if( engines::filePathIsValid( info ) ){
-
-				return m ;
-			}
-		}
+		return this->findExecutable( utility::reverseIterator( paths ),exeName,info ) ;
 	}
-
-	return {} ;
 }
 
 QString engines::findExecutable( const QString& exeName,bool searchFromBeginning ) const
@@ -653,18 +630,18 @@ QString engines::findExecutable( const QString& exeName,bool searchFromBeginning
 
 		auto paths = this->processEnvironment().value( "PATH" ).split( ';' ) ;
 
-		auto m = this->findExecutable( exeName,paths,info,searchFromBeginning ) ;
+		auto m = this->findExecutable( exeName,paths,searchFromBeginning ) ;
 
 		if( m.isEmpty() && !exeName.endsWith( ".exe" ) ){
 
-			m = this->findExecutable( exeName + ".exe",paths,info,searchFromBeginning ) ;
+			m = this->findExecutable( exeName + ".exe",paths,searchFromBeginning ) ;
 		}
 
 		return m ;
 	}else{
 		auto paths = this->processEnvironment().value( "PATH" ).split( ':' ) ;
 
-		return this->findExecutable( exeName,paths,info,searchFromBeginning ) ;
+		return this->findExecutable( exeName,paths,searchFromBeginning ) ;
 	}
 }
 
@@ -987,6 +964,8 @@ QJsonObject engines::engine::getOpts( const util::Json& e,settings& s ) const
 
 		obj.insert( "SupportingEngine",true ) ;
 
+		obj.insert( "UpdatableSupportingEngine",true ) ;
+
 		obj.insert( "AutoUpdate",s.denoEnableAutoDownload() ) ;
 
 	}else if( name == "svtplay-dl" ){
@@ -1011,6 +990,7 @@ engines::engine::engine( Logger& logger,
 	m_likeYtDlp( m_jsonObject.value( "LikeYoutubeDl" ).toBool() ),
 	m_autoUpdate( m_jsonObject.value( "AutoUpdate" ).toBool( true ) ),
 	m_supportingEngine( m_jsonObject.value( "SupportingEngine" ).toBool() ),
+	m_updatableSupportingEngine( m_jsonObject.value( "UpdatableSupportingEngine" ).toBool() ),
 	m_archiveContainsFolder( m_jsonObject.value( "ArchiveContainsFolder" ).toBool() ),
 	m_versionArgument( m_jsonObject.value( "VersionArgument" ).toString() ),
 	m_name( m_jsonObject.value( "Name" ).toString() ),
@@ -1615,7 +1595,7 @@ std::vector< engines::engine::baseEngine::mediaInfo > engines::engine::baseEngin
 
 	QStringList m ;
 
-	utility::reverse( args ).forEach( [ & ]( const QByteArray& s ){
+	utility::reverseIterator( args ).forEach( [ & ]( const QByteArray& s ){
 
 		auto a = util::split( s,' ',true ) ;
 
