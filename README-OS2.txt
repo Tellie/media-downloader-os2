@@ -5,7 +5,7 @@
 ****                All the money you send will go to the QT5 project                          ****
 ===================================================================================================
 
-Media-downloader v5.4.8   
+Media-downloader v5.5.2   
 
  CONTENTS OF THIS FILE
  =====================
@@ -32,7 +32,7 @@ Media-downloader v5.4.8
 1. INTRODUCTION
 ===============
 
-Welcome to media-downloader v5.4.8 port for OS/2 and Arcanoae.
+Welcome to media-downloader v5.5.2 port for OS/2 and Arcanoae.
 
 This project is a Qt/C++ based GUI frontend to CLI multiple CLI-based tools that deal with downloading online media.11
 
@@ -131,25 +131,22 @@ development, you can do so in one of the following ways:
 Compiled now with Qt v5.15.2
 
 Changelog:
-     Version 5.4.6(November 17th, 2025)
-     Version 5.4.6(November 17th, 2025)
+     Version 5.5.0(March 14th, 2026)
+     [FLATPAK]
+      - Bundle svtplay-dl because its dependencies are now bundled too.
      [ALL]
-      - Update French translations.
-      - Update Greek translations.
-     [Flatpak]
-      - Fix a bug that cause yt-dlp specific options to be set when using other engines.
-     [Gallery-dl]
-      - Fix a bug that caused downloaded files to be under "directlink" subfolder under certain circumstances.
+      - Show more info in batch downloader when using svtplay-dl.
 
-     Version 5.4.7(January 13th, 2026)
+     Version 5.5.1(April 14th, 2026)
+     [FLATPAK]
+      - Continue to bundle svtplay-dl dependencies but unbundle svtplay-dl executable.
      [ALL]
-      - Maintanance Release.
+      - Add GUI options to tell MD to use system binaries or to download its own binaries.
 
-     Version 5.4.8(January 21th, 2026)
+     Version 5.5.2(April 23rd, 2026)
      [ALL]
-      - Update Chinese translations.
-     [WINDOWS7]
-      - Fix a bug that caused a wrong yt-dlp binary to be downloaded and used.
+      - Fix a bug that made it impossible to update Deno from within the application.
+      - When showing a list of available media, show audio language below format code if it is available.
 
 How to install:
 
