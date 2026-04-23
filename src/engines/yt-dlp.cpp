@@ -252,7 +252,7 @@ void yt_dlp::checkIfBinaryExist( const QString& runTimeBinPath,const QString& th
 
 static const char * _jsonFullArguments()
 {
-	return R"R({"uploader":%(uploader)j,"id":%(id)j,"thumbnail":%(thumbnail)j,"duration":%(duration)j,"title":%(title)j,"upload_date":%(upload_date)j,"webpage_url":%(webpage_url)j,"formats":%(formats.:.{url,format_id,ext,resolution,filesize,filesize_approx,tbr,vbr,abr,asr,container,protocol,vcodec,video_ext,acodec,audio_ext,format_note})j,"playlist_id":%(playlist_id)j,"playlist_title":%(playlist_title)j,"playlist":%(playlist)j,"playlist_uploader":%(playlist_uploader)j,"playlist_uploader_id":%(playlist_uploader_id)j})R" ;
+	return R"R({"uploader":%(uploader)j,"id":%(id)j,"thumbnail":%(thumbnail)j,"duration":%(duration)j,"title":%(title)j,"upload_date":%(upload_date)j,"webpage_url":%(webpage_url)j,"formats":%(formats.:.{url,language,format_id,ext,resolution,filesize,filesize_approx,tbr,vbr,abr,asr,container,protocol,vcodec,video_ext,acodec,audio_ext,format_note})j,"playlist_id":%(playlist_id)j,"playlist_title":%(playlist_title)j,"playlist":%(playlist)j,"playlist_uploader":%(playlist_uploader)j,"playlist_uploader_id":%(playlist_uploader_id)j})R" ;
 }
 
 QStringList yt_dlp::jsonNoFormatsArgumentList()
@@ -322,7 +322,7 @@ QJsonObject yt_dlp::init( const QString& name,
 
 	json.done() ;
 
-	mainObj.insert( "Version","2" ) ;
+	mainObj.insert( "Version","3" ) ;
 
 	mainObj.insert( "ExtraOptions",utility::QJsonArrayJoin() ) ;
 
@@ -870,6 +870,7 @@ private:
 		auto vcodec    = obj.value( "vcodec" ).toString() ;
 		auto acodec    = obj.value( "acodec" ).toString() ;
 		auto fmtNotes  = obj.value( "format_note" ).toString() ;
+		auto language  = obj.value( "language" ).toString() ;
 
 		QStringList s ;
 
@@ -949,6 +950,11 @@ private:
 		auto sizeRaw = this->fileSizeRaw( obj ) ;
 
 		ss = ss + s.join( ", " ) ;
+
+		if( !language.isEmpty() ){
+
+			id += "\n" + language ;
+		}
 
 		m_medias.emplace_back( mt,arr,id,ext,rsn,size,sizeRaw,ss,m_duration,m_title ) ;
 	}
@@ -1219,10 +1225,7 @@ QString yt_dlp::updateTextOnCompleteDownlod( const QString& uiText,
 	}
 }
 
-static void _parse_metadata( QStringList& mm,
-			     const QString& txt,
-			     const QString& original,
-			     const QString& New )
+void yt_dlp::parseMetadata( QStringList& mm,const QString& txt,const QString& original,const QString& New )
 {
 	if( !New.isEmpty() && txt.contains( original ) ){
 
@@ -1279,16 +1282,16 @@ void yt_dlp::updateDownLoadCmdOptions( const engines::engine::baseEngine::update
 				auto w = s.uiIndex.toString( true,s.ourOptions ) ;
 				auto ww = s.uiIndex.toString( false,s.ourOptions ) ;
 
-				_parse_metadata( mm,e,"%(autonumber)s",ww ) ;
-				_parse_metadata( mm,e,"%(playlist_index)s",w ) ;
-				_parse_metadata( mm,e,"%(playlist_autonumber)s",w ) ;
-				_parse_metadata( mm,e,"%(playlist_id)s",s.playlist_id ) ;
-				_parse_metadata( mm,e,"%(playlist_title)s",s.playlist_title ) ;
-				_parse_metadata( mm,e,"%(playlist)s",s.playlist ) ;
-				_parse_metadata( mm,e,"%(playlist_count)s",s.playlist_count ) ;
-				_parse_metadata( mm,e,"%(playlist_uploader)s",s.playlist_uploader ) ;
-				_parse_metadata( mm,e,"%(playlist_uploader_id)s",s.playlist_uploader_id ) ;
-				_parse_metadata( mm,e,"%(n_entries)s",s.uiIndex.total() ) ;
+				this->parseMetadata( mm,e,"%(autonumber)s",ww ) ;
+				this->parseMetadata( mm,e,"%(playlist_index)s",w ) ;
+				this->parseMetadata( mm,e,"%(playlist_autonumber)s",w ) ;
+				this->parseMetadata( mm,e,"%(playlist_id)s",s.playlist_id ) ;
+				this->parseMetadata( mm,e,"%(playlist_title)s",s.playlist_title ) ;
+				this->parseMetadata( mm,e,"%(playlist)s",s.playlist ) ;
+				this->parseMetadata( mm,e,"%(playlist_count)s",s.playlist_count ) ;
+				this->parseMetadata( mm,e,"%(playlist_uploader)s",s.playlist_uploader ) ;
+				this->parseMetadata( mm,e,"%(playlist_uploader_id)s",s.playlist_uploader_id ) ;
+				this->parseMetadata( mm,e,"%(n_entries)s",s.uiIndex.total() ) ;
 			}
 
 			break ;

@@ -1773,70 +1773,97 @@ namespace utility
 
 		utility::run( std::move( u ),args.credentials(),m.move() ) ;
 	}
-	template< typename List,
-		  std::enable_if_t< std::is_lvalue_reference< List >::value,int > = 0 >
-	class reverseIterator
+
+	template< typename Iter,typename ValueType >
+	class iterator
 	{
 	public:
-		typedef typename std::remove_reference_t< std::remove_cv_t< List > >::value_type value_type ;
-		typedef typename std::remove_reference_t< std::remove_cv_t< List > >::size_type size_type ;
-
-	        reverseIterator( List s ) :
-		        m_list( s ),
-			m_index( m_list.size() - 1 )
+		iterator( Iter it ) : m_iter( std::move( it ) )
 		{
 		}
 		bool hasNext() const
 		{
-			return m_index > -1 ;
+			return m_iter.hasNext() ;
 		}
-		void reset()
+		decltype( auto ) next()
 		{
-			m_index = m_list.size() - 1 ;
-		}
-		auto& next()
-		{
-			return m_list[ this->nextValue() ] ;
-		}
-		auto nextAsValue()
-		{
-			return m_list[ this->nextValue() ] ;
+			return m_iter.next() ;
 		}
 		template< typename Function,
-			  util::types::has_bool_return_type< Function,typename reverseIterator< List >::value_type > = 0 >
-		void forEach( Function function )
+			  util::types::has_bool_return_type< Function,ValueType > = 0 >
+		void forEach( const Function& function )
 		{
 			while( this->hasNext() ){
 
-				if( function( m_list[ this->nextValue() ] ) ){
+				if( function( this->next() ) ){
 
 					break ;
 				}
 			}
 		}
 		template< typename Function,
-			  util::types::has_void_return_type< Function,typename reverseIterator< List >::value_type > = 0 >
-		void forEach( Function function )
+			  util::types::has_void_return_type< Function,ValueType > = 0 >
+		void forEach( const Function& function )
 		{
 			while( this->hasNext() ){
 
-				function( m_list[ this->nextValue() ] ) ;
+				function( this->next() ) ;
 			}
 		}
 	private:
-		auto nextValue()
-		{
-			return static_cast< typename reverseIterator< List >::size_type >( m_index-- ) ;
-		}
-		List m_list ;
-		int m_index ;
+		Iter m_iter ;
 	} ;
 
-	template< typename List >
-	auto reverse( List&& l )
+	template< typename Type >
+	auto reverseIterator( const Type& type )
 	{
-		return reverseIterator< decltype( l ) >( std::forward< List >( l ) ) ;
+		class meaw
+		{
+		public:
+			meaw( const Type& t ) : m_type( t ),m_it( static_cast< int >( t.size() ) - 1 )
+			{				
+			}
+			bool hasNext() const
+			{
+				return m_it > -1 ;
+			}
+			decltype( auto ) next()
+			{
+				return m_type[ m_it-- ] ;
+			}
+		private:
+			const Type& m_type ;
+			int m_it ;
+		} ;
+
+		return utility::iterator< meaw,typename Type::value_type >( type ) ;
 	}
+
+	template< typename Type >
+	auto forwardIterator( const Type& type )
+	{
+		class meaw
+		{
+		public:
+			meaw( const Type& t ) : m_type( t ),m_it( 0 )
+			{				
+			}
+			bool hasNext() const
+			{
+				return m_it < static_cast< int >( m_type.size() ) ;
+			}
+			decltype( auto ) next()
+			{
+				return m_type[ m_it++ ] ;
+			}
+		private:
+			const Type& m_type ;
+			int m_it ;
+		} ;
+
+		return utility::iterator< meaw,typename Type::value_type >( type ) ;
+	}
+
 	class MediaEntry
 	{
 	public:
