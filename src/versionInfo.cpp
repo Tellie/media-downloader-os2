@@ -33,26 +33,9 @@ versionInfo::versionInfo( Ui::MainWindow&,const Context& ctx ) :
 	m_showLocalVersionsOnly                 = s.showLocalVersionInformationOnly() ;
 }
 
-versionInfo::printVinfo versionInfo::createPrintVinfo( const std::vector< engines::engine >& engines,bool na ) const
+versionInfo::printVinfo versionInfo::createPrintVinfo( const engines::EnginesList& engines,bool na ) const
 {
-	class meaw : public versionInfo::idone
-	{
-	public:
-		meaw( const Context& t ) : m_ctx( t )
-		{
-		}
-		void operator()() override
-		{
-			m_ctx.TabManager().init_done() ;
-		}
-	private:
-		const Context& m_ctx ;
-	} ;
-
-	engines::Iterator iter( engines,utility::sequentialID() ) ;
-	versionInfo::reportDone rd( util::types::type_identity< meaw >(),m_ctx ) ;
-
-	return { iter.move(),rd.move(),na } ;
+	return { engines::Iterator( engines,utility::loggerID() ),this->createReportDone(),na } ;
 }
 
 void versionInfo::log( const QString& msg,int id ) const
@@ -67,7 +50,6 @@ void versionInfo::next( printVinfo vinfo ) const
 		this->check( vinfo.next() ) ;
 	}else{
 		m_ctx.TabManager().enableAll() ;
-		m_ctx.TabManager().init_done() ;
 
 		const auto& e = vinfo.updates() ;
 
@@ -84,24 +66,20 @@ void versionInfo::next( printVinfo vinfo ) const
 
 void versionInfo::check( versionInfo::printVinfo vinfo ) const
 {
-	bool fromNetwork = vinfo.fromNetwork() ;
-
-	vinfo.resetFromNetwork() ;
-
 	const auto& engine = vinfo.engine() ;
 
-	if( engine.forTesting() ){
+	if( engine.forTesting() || engine.broken() ){
 
 		return this->next( vinfo.move() ) ;
 	}
 
-	if( engine.validDownloadUrl() && networkAccess::hasNetworkSupport() ){
+	if( engine.validDownloadUrl() ){
 
 		if( engine.backendExists() ){
 
 			this->printVersion( vinfo.move() ) ;
 
-		}else if( fromNetwork ){
+		}else if( vinfo.justFromTheNetwork() ){
 
 			auto id = vinfo.iter().id() ;
 
@@ -121,11 +99,11 @@ void versionInfo::check( versionInfo::printVinfo vinfo ) const
 
 			if( engine.autoUpdate() ){
 
-				m_network.download( this->wrap( vinfo.move() ) ) ;
+				m_network.download( vinfo.moveIter(),vinfo.moveRD() ) ;
 
 			}else if( !engine.backendExists() ){
 
-				m_network.download( this->wrap( vinfo.move() ) ) ;
+				m_network.download( vinfo.moveIter(),vinfo.moveRD() ) ;
 			}else{
 				auto m = QObject::tr( "Autoupdate Disabled For %1" ).arg( engine.name() ) ;
 
@@ -174,7 +152,7 @@ static QString _getGitVersion( const QString& e )
 void versionInfo::updateMediaDownloader( int id,
 					 const QJsonDocument& e,
 					 const QString& lvs,
-					 const std::vector< engines::engine >& engines,
+					 const engines::EnginesList& engines,
 					 bool hasNetworkAccess ) const
 {
 	this->log( QObject::tr( "Newest Version Is %1, Updating" ).arg( lvs ),id ) ;
@@ -182,7 +160,7 @@ void versionInfo::updateMediaDownloader( int id,
 	class meaw : public networkAccess::status
 	{
 	public:
-		meaw( const std::vector< engines::engine >& m,
+		meaw( const engines::EnginesList& m,
 		      const versionInfo& v,
 		      bool hasNetworkAccess,
 		      int id ) :
@@ -201,7 +179,7 @@ void versionInfo::updateMediaDownloader( int id,
 			return m_id ;
 		}
 	private:
-		const std::vector< engines::engine >& m_engines ;
+		const engines::EnginesList& m_engines ;
 		const versionInfo& m_parent ;
 		bool m_hasNetworkAccess ;
 		int m_id ;
@@ -214,19 +192,17 @@ void versionInfo::updateMediaDownloader( int id,
 	m_network.updateMediaDownloader( s.move(),e ) ;
 }
 
-void versionInfo::checkMediaDownloaderUpdate( versionInfo::printVinfo vInfo,
-					      int id,
-					      const QByteArray& data,
-					      const std::vector< engines::engine >& engines,
-					      bool hasNetworkAccess ) const
+void versionInfo::ckMDUpdate( versionInfo::printVinfo vInfo,
+			      int id,
+			      const QByteArray& data,
+			      const engines::EnginesList& engines,
+			      bool hasNetworkAccess ) const
 {
-	QJsonParseError err ;
+	auto e = utility::jsonDoc( data ) ;
 
-	auto e = QJsonDocument::fromJson( data,&err ) ;
+	if( e.valid() ){
 
-	if( err.error == QJsonParseError::NoError ){
-
-		auto obj = e.object() ;
+		auto obj = e.toObject() ;
 
 		auto lvs = obj.value( "tag_name" ).toString() ;
 
@@ -242,7 +218,7 @@ void versionInfo::checkMediaDownloaderUpdate( versionInfo::printVinfo vInfo,
 
 			if( m_showLocalVersionsAndUpdateIfAvailable ){
 
-				this->updateMediaDownloader( id,e,lvs,engines,hasNetworkAccess ) ;
+				this->updateMediaDownloader( id,e.get(),lvs,engines,hasNetworkAccess ) ;
 			}else{
 				versionInfo::pVInfo v{ vInfo.move(),id,{} } ;
 
@@ -254,13 +230,13 @@ void versionInfo::checkMediaDownloaderUpdate( versionInfo::printVinfo vInfo,
 			this->check( vInfo.move() ) ;
 		}
 	}else{
-		m_ctx.logger().add( err.errorString(),id ) ;
+		m_ctx.logger().add( e.errorString(),id ) ;
 
 		this->check( vInfo.move() ) ;
 	}
 }
 
-void versionInfo::checkMediaDownloaderUpdate( const std::vector< engines::engine >& engines ) const
+void versionInfo::checkMediaDownloaderUpdate( const engines::EnginesList& engines ) const
 {
 	if( !m_showLocalAndLatestVersions ){
 
@@ -283,7 +259,7 @@ void versionInfo::checkMediaDownloaderUpdate( const std::vector< engines::engine
 
 	m_ctx.TabManager().disableAll() ;
 
-	auto id = utility::sequentialID() ;
+	auto id = utility::loggerID() ;
 
 	this->log( QObject::tr( "Checking installed version of %1" ).arg( m_ctx.appName() ),id ) ;
 
@@ -293,24 +269,73 @@ void versionInfo::checkMediaDownloaderUpdate( const std::vector< engines::engine
 
 		auto url = m_ctx.Settings().gitHubDownloadUrl() ;
 
-		m_network.get( url,[ this,id,&engines ]( const utils::network::reply& reply ){
-
-			utility::networkReply nreply( m_ctx,reply ) ;
-
-			if( reply.success() ){
-
-				auto m = this->createPrintVinfo( engines,true ) ;
-				this->checkMediaDownloaderUpdate( m.move(),id,nreply.data(),engines,true ) ;
-			}else{
-				this->check( this->createPrintVinfo( engines,false ) ) ;
+		class meaw
+		{
+		public:
+			meaw( const engines::EnginesList& engines,
+			      const versionInfo& parent,
+			      int id ) :
+				m_engines( engines ),m_parent( parent ),m_id( id )
+			{
 			}
-		} ) ;
+			void operator()( const utils::network::reply& reply )
+			{
+				if( reply.success() ){
+
+					utility::networkReply m( m_parent.m_ctx,reply ) ;
+
+					this->checkMDUpdate( m.data() ) ;
+				}else{
+					auto m = m_parent.createPrintVinfo( m_engines,false ) ;
+
+					m_parent.check( m.move() ) ;
+				}
+			}
+		private:
+			void checkMDUpdate( const QByteArray& data )
+			{
+				auto m = m_parent.createPrintVinfo( m_engines,true ) ;
+
+				m_parent.ckMDUpdate( m.move(),m_id,data,m_engines,true ) ;
+			}
+			const engines::EnginesList& m_engines ;
+			const versionInfo& m_parent ;
+			int m_id ;
+		} ;
+
+		m_network.get( url,meaw( engines,*this,id ) ) ;
 	}else{
 		this->check( this->createPrintVinfo( engines,true ) ) ;
 	}
 }
 
-bool versionInfo::allBackendExists( const std::vector<engines::engine>& e ) const
+bool versionInfo::likeYtdlpExtra( const engines::engine& engine ) const
+{
+	const auto& name = engine.name() ;
+
+	return name.contains( "yt-dlp" ) && name != "yt-dlp" && name != "yt-dlp-nightly" ;
+}
+
+networkAccess::reportDone versionInfo::createReportDone() const
+{
+	class meaw : public networkAccess::report
+	{
+	public:
+		meaw( const Context& t ) : m_ctx( t )
+		{
+		}
+		void done() override
+		{
+			m_ctx.TabManager().init_done() ;
+		}
+	private:
+		const Context& m_ctx ;
+	} ;
+
+	return networkAccess::reportDone( util::types::type_identity< meaw >(),m_ctx ) ;
+}
+
+bool versionInfo::allBackendExists( const engines::EnginesList& e ) const
 {
 	for( const auto& it : e ){
 
@@ -323,56 +348,28 @@ bool versionInfo::allBackendExists( const std::vector<engines::engine>& e ) cons
 	return true ;
 }
 
-networkAccess::iterator versionInfo::wrap( printVinfo m ) const
-{
-	class meaw : public networkAccess::iter
-	{
-	public:
-		meaw( printVinfo m ) : m_vInfo( m.move() )
-		{
-		}
-		const engines::engine& engine() override
-		{
-			return m_vInfo.engine() ;
-		}
-		bool hasNext() override
-		{
-			return m_vInfo.hasNext() ;
-		}
-		void moveToNext() override
-		{
-			m_vInfo = m_vInfo.next() ;
-		}
-		void reportDone() override
-		{
-			m_vInfo.reportDone() ;
-		}
-		void failed() override
-		{
-			m_vInfo.failed() ;
-		}
-		const engines::Iterator& itr() override
-		{
-			return m_vInfo.iter() ;
-		}
-	private:
-		printVinfo m_vInfo ;
-	};
-
-	return { util::types::type_identity< meaw >(),m.move() } ;
-}
-
 void versionInfo::printVersion( versionInfo::printVinfo vInfo ) const
 {
-	m_ctx.TabManager().disableAll() ;
-
 	const auto& engine = vInfo.engine() ;
 
-	auto id = utility::sequentialID() ;
+	if( !utility::cliArguments::debug() ){
+
+		if( engine.supportingEngine() ){
+
+			if( !engine.updatableSupportingEngine() ){
+
+				return this->next( vInfo.move() ) ;
+			}
+		}
+	}
+
+	m_ctx.TabManager().disableAll() ;	
+
+	auto id = utility::loggerID() ;
 
 	this->log( QObject::tr( "Checking installed version of %1" ).arg( engine.name() ),id ) ;
 
-	if( engine.name().contains( "yt-dlp" ) && engine.name() != "yt-dlp" ){
+	if( this->likeYtdlpExtra( engine ) ){
 
 		const auto& e = m_ctx.Engines().getEngineByName( "yt-dlp" ) ;
 
@@ -415,9 +412,9 @@ void versionInfo::printVersion( versionInfo::printVinfo vInfo ) const
 		exe += " \"" + it + "\"" ;
 	}
 
-	if( m_ctx.debug() ){
+	if( utility::cliArguments::debug() ){
 
-		m_ctx.logger().add( "cmd: " + exe,id ) ;
+		m_ctx.logger().add( "Cmd: " + exe,id ) ;
 	}
 
 	auto mm = QProcess::ProcessChannelMode::MergedChannels ;
@@ -506,6 +503,8 @@ void versionInfo::printVersionN( versionInfo::pVInfo pvInfo,const utils::network
 
 	auto ss = utility::networkReply( m_ctx,reply ).data() ;
 
+	pvInfo.setNetworkAvailability( !ss.isEmpty() ) ;
+
 	const auto& versionOnline = engine.versionInfoFromGithub( ss ) ;
 
 	const auto& installedVersion = engine.versionInfo() ;
@@ -522,7 +521,9 @@ void versionInfo::printVersionN( versionInfo::pVInfo pvInfo,const utils::network
 
 			this->log( mm,pvInfo.id() ) ;
 
-			m_network.download( this->wrap( pvInfo.movePrintVinfo() ) ) ;
+			auto s = pvInfo.movePrintVinfo() ;
+
+			m_network.download( s.moveIter(),s.moveRD() ) ;
 
 		}else if( m_showLocalVersionsAndUpdateIfAvailable ){
 
@@ -532,7 +533,9 @@ void versionInfo::printVersionN( versionInfo::pVInfo pvInfo,const utils::network
 
 				this->log( mm,pvInfo.id() ) ;
 
-				m_network.download( this->wrap( pvInfo.movePrintVinfo() ) ) ;
+				auto s = pvInfo.movePrintVinfo() ;
+
+				m_network.download( s.moveIter(),s.moveRD() ) ;
 			}else{
 				auto mm = QObject::tr( "Newest Version Is %1, AutoUpdate Disabled" ).arg( m ) ;
 
@@ -558,31 +561,37 @@ void versionInfo::updateVersion( versionInfo::pVInfo& pvInfo,
 {
 	pvInfo.updates().append( engineName ) ;
 
-	m_ctx.logger().add( [ &version ]( Logger::Data& s,int id,bool ){
-
-		auto d = s.getData( id ) ;
-
-		auto mm = QObject::tr( "Newest Version Is: %1" ).arg( version ) ;
-
-		if( d.size() > 1 ){
-
-			auto foundVersion = d.takeLast() ;
-			auto engineName = d.takeLast() ;
-
-			auto bar = "[media-downloader] " + utility::barLine() ;
-
-			s.add( id,bar ) ;
-			s.add( id,engineName ) ;
-			s.add( id,foundVersion ) ;
-			s.add( id,"[media-downloader] " + mm.toUtf8() ) ;
-			s.add( id,bar ) ;
-		}else{
-			s.add( id,"[media-downloader] " + mm.toUtf8() ) ;
+	class meaw
+	{
+	public:
+		meaw( const QString& version ) : m_version( version )
+		{
 		}
+		void operator()( Logger::Data& s,int id,bool ) const
+		{
+			auto d = s.getData( id ) ;
 
-	},pvInfo.id() ) ;
-}
+			auto mm = QObject::tr( "Newest Version Is: %1" ).arg( m_version ) ;
 
-versionInfo::idone::~idone()
-{
+			if( d.size() > 1 ){
+
+				auto foundVersion = d.takeLast() ;
+				auto engineName = d.takeLast() ;
+
+				auto bar = "[media-downloader] " + utility::barLine() ;
+
+				s.add( id,bar ) ;
+				s.add( id,engineName ) ;
+				s.add( id,foundVersion ) ;
+				s.add( id,"[media-downloader] " + mm.toUtf8() ) ;
+				s.add( id,bar ) ;
+			}else{
+				s.add( id,"[media-downloader] " + mm.toUtf8() ) ;
+			}
+		}
+	private:
+		const QString& m_version ;
+	} ;
+
+	m_ctx.logger().add( meaw( version ),pvInfo.id() ) ;
 }

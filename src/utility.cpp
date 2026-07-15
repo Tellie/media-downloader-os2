@@ -36,10 +36,6 @@
 #include <ctime>
 #include <cstring>
 
-const char * utility::selectedAction::CLEAROPTIONS = "Clear Options" ;
-const char * utility::selectedAction::CLEARSCREEN  = "Clear Screen" ;
-const char * utility::selectedAction::OPENFOLDER   = "Open Download Folder" ;
-
 class pretendPlatform
 {
 public:
@@ -1204,7 +1200,7 @@ QMenu * utility::setUpMenu( const Context& ctx,
 
 		menu->addSeparator() ;
 
-		auto m = utility::selectedAction::CLEARSCREEN ;
+		auto m = utility::selectedAction::clearScreenText() ;
 		translator::entry sx( QObject::tr( "Clear" ),m,m ) ;
 
 		tr.addAction( menu,sx.move() ) ;
@@ -1214,7 +1210,7 @@ QMenu * utility::setUpMenu( const Context& ctx,
 
 		menu->addSeparator() ;
 
-		auto m = utility::selectedAction::OPENFOLDER ;
+		auto m = utility::selectedAction::openFolderText() ;
 		translator::entry mm( QObject::tr( "Open Download Folder" ),m,m ) ;
 
 		tr.addAction( menu,mm.move() ) ;
@@ -1359,16 +1355,7 @@ void utility::initDone()
 {
 }
 
-int utility::sequentialID()
-{
-	static int id = 0 ;
-
-	--id ;
-
-	return id ;
-}
-
-int utility::concurrentID()
+int utility::loggerID()
 {
 	static int id = -1 ;
 
@@ -2001,7 +1988,7 @@ bool utility::startedUpdatedVersion( settings& s,const utility::cliArguments& ca
 
 				return _start_updated( exe ) ;
 			}else{
-				QDir( update ).removeRecursively() ;
+				utils::qthread::run( [ update ]{ QDir( update ).removeRecursively() ; } ) ;
 			}
 		}
 	}
@@ -2277,15 +2264,15 @@ void utility::networkReply::getData( const Context& ctx,const utils::network::re
 
 			QString m = "Network Error: Request Succeeded But No Data Received" ;
 
-			ctx.logger().add( m,utility::concurrentID() ) ;
+			ctx.logger().add( m,utility::loggerID() ) ;
 		}
 	}else if( reply.timeOut() ){
 
 		QString m = "Network Error: Network Request Timed Out" ;
 
-		ctx.logger().add( m,utility::concurrentID() ) ;
+		ctx.logger().add( m,utility::loggerID() ) ;
 	}else{
-		ctx.logger().add( "Network Error: " + reply.errorString(),utility::concurrentID() ) ;
+		ctx.logger().add( "Network Error: " + reply.errorString(),utility::loggerID() ) ;
 	}
 }
 
@@ -2296,11 +2283,25 @@ bool utility::cliArguments::useFakeMdHash()
 	return _useFakeHash ;
 }
 
+static bool _cliArguments_debug ;
+
+bool utility::cliArguments::debug()
+{
+	return _cliArguments_debug ;
+}
+
 utility::cliArguments::cliArguments( int argc,char ** argv )
 {
 	for( int i = 0 ; i < argc ; i++ ){
 
 		m_args.append( argv[ i ] ) ;
+	}
+
+	if( m_args.contains( "--qDebug" ) || m_args.contains( "--qdebug" ) || m_args.contains( "--debug" ) ){
+
+		_cliArguments_debug = true ;
+	}else{
+		_cliArguments_debug = false ;
 	}
 
 	_useFakeHash = this->contains( "--fake-hash" ) ;
@@ -2414,9 +2415,14 @@ const QStringList& utility::cliArguments::arguments() const
 
 bool utility::pathIsFolderAndExists( const QString& e )
 {
-	QFileInfo m( e ) ;
+	if( e.isEmpty() ){
 
-	return m.exists() && m.isDir() ;
+		return false ;
+	}else{
+		QFileInfo m( e ) ;
+
+		return m.exists() && m.isDir() ;
+	}
 }
 
 QByteArray utility::barLine()
@@ -2470,14 +2476,14 @@ void utility::printOutPut::operator()( int id,const QByteArray& e )
 	}
 }
 
-utility::printOutPut::operator bool() const
+bool utility::printOutPut::valid() const
 {
 	return m_status != utility::printOutPut::status::notSet ;
 }
 
 void utility::failedToParseJsonData( Logger& logger,const QJsonParseError& error )
 {
-	auto id = utility::sequentialID() ;
+	auto id = utility::loggerID() ;
 
 	logger.add( "Failed To Parse Json Data:" + error.errorString(),id ) ;
 }
@@ -2876,7 +2882,7 @@ QString utility::rename( const Context& ctx,
 	auto oldPath = cwd + "/" + oldName ;
 	auto newPath = cwd + "/" + newName ;
 
-	auto id = utility::concurrentID() ;
+	auto id = utility::loggerID() ;
 
 	fileRename rename( oldPath,newPath ) ;
 
@@ -2940,7 +2946,7 @@ QString utility::removeFolder( const QString& e )
 
 bool utility::containsLinkerWarning( const QByteArray& e )
 {
-	return e.contains( "ERROR: ld.so: object" ) ;
+	return e.contains( "ERROR: ld.so: object" ) || e.contains( "RequestsDependencyWarning:" ) ;
 }
 
 void utility::copyToClipboardUrls( tableWidget& table )

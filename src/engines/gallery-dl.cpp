@@ -19,6 +19,7 @@
 
 #include "gallery-dl.h"
 #include "../settings.h"
+#include "../utility.h"
 
 #include <QDesktopServices>
 
@@ -190,60 +191,7 @@ const char * gallery_dl::testData()
 gallery_dl::gallery_dl( const engines& engines,const engines::engine& engine,QJsonObject& object ) :
 	engines::engine::baseEngine( engines.Settings(),engine,engines.processEnvironment() )
 {
-	if( !object.contains( "CookieArgument" ) ){
-
-		object.insert( "CookieArgument","--cookies-from-browser" ) ;
-	}
-
-	if( !object.contains( "CookieArgumentTextFile" ) ){
-
-		object.insert( "CookieArgumentTextFile","--cookies" ) ;
-	}
-
-	object.insert( "ReplaceOutputWithProgressReport",false ) ;
-
-	object.insert( "ControlJsonStructure",[](){
-
-		QJsonObject obj ;
-
-		obj.insert( "Connector","||" ) ;
-
-		obj.insert( "lhs",[](){
-
-			QJsonObject obj ;
-
-			obj.insert( "startsWith","[gallery-dl]" ) ;
-
-			return obj ;
-		}() ) ;
-
-		obj.insert( "rhs",[](){
-
-			QJsonObject obj ;
-
-			obj.insert( "contains","% " ) ;
-
-			return obj ;
-		}() ) ;
-
-		return obj ;
-	}() ) ;
-
-	object.insert( "CanDownloadPlaylist",true ) ;
-
-	QJsonArray arr ;
-
-	arr.append( "--no-skip" ) ;
-	arr.append( "--no-download" ) ;
-	arr.append( "--quiet" ) ;
-	arr.append( "--postprocessor" ) ;
-	arr.append( "metadata" ) ;
-	arr.append( "--postprocessor-option" ) ;
-	arr.append( "event=prepare" ) ;
-	arr.append( "--postprocessor-option" ) ;
-	arr.append( "filename=-" ) ;
-
-	object.insert( "DumptJsonArguments",arr ) ;
+	object.insert( "DownloadUrl","https://codeberg.org/api/v1/repos/mikf/gallery-dl/releases" ) ;
 }
 
 bool gallery_dl::parse( const int& s,std::vector< QByteArray >& mm,QByteArray& data )
@@ -458,13 +406,11 @@ private:
 
 QJsonObject gallery_dl::parseJson( const QString& url,const QByteArray& e )
 {
-	QJsonParseError err ;
+	auto doc = utility::jsonDoc( e ) ;
 
-	auto doc = QJsonDocument::fromJson( e,&err ) ;
+	if( doc.valid() ){
 
-	if( err.error == QJsonParseError::NoError ){
-
-		galleryDlparseData parser( url,doc ) ;
+		galleryDlparseData parser( url,doc.get() ) ;
 
 		if( url.contains( "artstation.com" ) ){
 
@@ -484,6 +430,53 @@ QJsonObject gallery_dl::parseJson( const QString& url,const QByteArray& e )
 util::Json gallery_dl::parsePlayListData( const QString& url,const QByteArray& e )
 {
 	return this->parseJson( url,e ) ;
+}
+
+engines::engine::baseEngine::onlineVersion gallery_dl::versionInfoFromGithub( const QByteArray& e )
+{
+	auto doc = utility::jsonDoc( e ) ;
+
+	if( doc.valid() ){
+
+		if( doc.isObject() ){
+
+			return engines::engine::baseEngine::versionInfoFromGithub( doc.get() ) ;
+
+		}else if( doc.isArray() ){
+
+			auto s = doc.toArray() ;
+
+			if( s.size() ){
+
+				QJsonDocument m( s[ 0 ].toObject() ) ;
+
+				return engines::engine::baseEngine::versionInfoFromGithub( m ) ;
+			}
+		}
+	}
+
+	return {} ;
+}
+
+engines::metadata gallery_dl::parseJsonDataFromGitHub( const QJsonDocument& e )
+{
+	if( e.isObject() ){
+
+		return engines::engine::baseEngine::parseJsonDataFromGitHub( e ) ;
+
+	}else if( e.isArray() ){
+
+		auto s = e.array() ;
+
+		if( s.size() ){
+
+			QJsonDocument doc( s[ 0 ].toObject() ) ;
+
+			return engines::engine::baseEngine::parseJsonDataFromGitHub( doc ) ;
+		}
+	}
+
+	return QJsonObject() ;
 }
 
 gallery_dl::~gallery_dl()
@@ -632,7 +625,7 @@ const QByteArray& gallery_dl::gallery_dlFilter::operator()( Logger::Data& s )
 
 	if( m_dir.isEmpty() && data.size() ){
 
-		const QByteArray& e = *data.begin() ;
+		const auto& e = data.begin()->data() ;
 
 		if( e.startsWith( "[media-downloader] cmd:" ) ){
 
@@ -658,7 +651,7 @@ const QByteArray& gallery_dl::gallery_dlFilter::operator()( Logger::Data& s )
 
 	for( const auto& e : data ){
 
-		auto u = QDir::fromNativeSeparators( e ) ;
+		auto u = QDir::fromNativeSeparators( e.data() ) ;
 
 		auto n = u.indexOf( m_dir ) ;
 

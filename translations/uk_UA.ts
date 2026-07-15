@@ -445,11 +445,11 @@ Exampe 2: ${gateway}:8080</source>
     </message>
     <message>
         <source>Use Deno From System If Available</source>
-        <translation type="unfinished"></translation>
+        <translation>Використовувати системний Deno, якщо доступно</translation>
     </message>
     <message>
         <source>Use Extension From System If Available</source>
-        <translation type="unfinished"></translation>
+        <translation>Використовувати системне розширення, якщо доступно</translation>
     </message>
 </context>
 <context>
@@ -1133,6 +1133,14 @@ Exampe 2: ${gateway}:8080</source>
     <message>
         <source>Getting</source>
         <translation>Отримання</translation>
+    </message>
+    <message>
+        <source>Paste Clipboard Url</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Extracting Audio</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>

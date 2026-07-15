@@ -85,26 +85,6 @@ namespace utility
 		impl::qJsonArrJoin( arr,std::forward< Args >( args ) ... ) ;
 		return arr ;
 	}
-	class strl
-	{
-	public:
-		strl() = delete ;
-		template< size_t N >
-		strl( const char ( &s )[ N ] ) : m_size( N - 1 ),m_string( s )
-		{
-		}
-		size_t size() const
-		{
-			return m_size ;
-		}
-		const char * data() const
-		{
-			return m_string ;
-		}
-	private:
-		size_t m_size ;
-		const char * m_string ;
-	} ;
 	template< typename T >
 	class vector
 	{
@@ -484,15 +464,79 @@ namespace utility
 		QStringList arguments( const QString&,const QString&,const QString&,bool ) const ;
 		const QStringList& arguments() const ;
 		static bool useFakeMdHash() ;
+		static bool debug() ;
 	private:
 		QStringList m_args ;
+	} ;
+	class event
+	{
+	public:
+		static QByteArray toJson( const utility::cliArguments& e )
+		{
+			QJsonObject obj ;
+
+			if( e.contains( "-a" ) || e.contains( "--auto-download" ) ){
+
+				obj.insert( "AutoDownload",true ) ;
+			}else{
+				obj.insert( "AutoDownload",false ) ;
+			}
+
+			if( e.contains( "-e" ) || e.contains( "--show-metadata" ) ){
+
+				obj.insert( "ShowMetaData",true ) ;
+			}else{
+				obj.insert( "ShowMetaData",false ) ;
+			}
+
+			auto url = e.value( "-u" ) ;
+
+			if( url.isEmpty() ){
+
+				url = e.value( "--url" ) ;
+			}
+
+			obj.insert( "Url",url ) ;
+
+			auto proxy = e.value( "-p" ) ;
+
+			if( proxy.isEmpty() ){
+
+				proxy = e.value( "--proxy" ) ;
+			}
+
+			obj.insert( "Proxy",proxy ) ;
+
+			return QJsonDocument( obj ).toJson( QJsonDocument::Indented ) ;
+		}
+		event( QJsonObject obj ) : m_obj( std::move( obj ) )
+		{
+		}
+		QString url() const
+		{
+			return m_obj.value( "Url" ).toString() ;
+		}
+		QString proxy() const
+		{
+			return m_obj.value( "Proxy" ).toString() ;
+		}
+		bool autoDownload() const
+		{
+			return m_obj.value( "AutoDownload" ).toBool() ;
+		}
+		bool showMetaData() const
+		{
+			return m_obj.value( "ShowMetaData" ).toBool() ;
+		}
+	private:
+		QJsonObject m_obj ;
 	} ;
 	class printOutPut
 	{
 	public:
 		printOutPut( const utility::cliArguments& ) ;
 		void operator()( int,const QByteArray& ) ;
-		operator bool() const ;
+		bool valid() const ;
 	private:
 		QFile m_outPutFile ;
 		enum class status{ qdebug,debug,notSet } m_status = utility::printOutPut::status::notSet ;
@@ -526,8 +570,8 @@ namespace utility
 					      int row ) ;
 
 	QString failedToFindExecutableString( const QString& cmd ) ;
-	int sequentialID() ;
-	int concurrentID() ;
+
+	int loggerID() ;
 	void initDone() ;
 	void saveDownloadList( const Context&,QMenu&,tableWidget&,bool ) ;
 	void saveDownloadList( const Context&,tableWidget&,bool ) ;
@@ -612,6 +656,52 @@ namespace utility
 		}
 		bool hasExtraOptions = false ;
 		QString downloadOptions ;
+	} ;
+	class jsonDoc
+	{
+	public:
+		jsonDoc( const QByteArray& e ) : m_doc( QJsonDocument::fromJson( e,&m_err ) )
+		{
+		}
+		const QJsonDocument& get() const
+		{
+			return m_doc ;
+		}
+		bool valid() const
+		{
+			return m_err.error == QJsonParseError::NoError ;
+		}
+		bool notValid() const
+		{
+			return m_err.error != QJsonParseError::NoError ;
+		}
+		QString errorString() const
+		{
+			return m_err.errorString() ;
+		}
+		const QJsonParseError& error() const
+		{
+			return m_err ;
+		}
+		QJsonObject toObject() const
+		{
+			return m_doc.object() ;
+		}
+		QJsonArray toArray() const
+		{
+			return m_doc.array() ;
+		}
+		bool isObject() const
+		{
+			return m_doc.isObject() ;
+		}
+		bool isArray() const
+		{
+			return m_doc.isArray() ;
+		}
+	private:
+		QJsonParseError m_err ;
+		QJsonDocument m_doc ;
 	} ;
 	QString parseVersionInfo( const utils::qprocess::outPut& ) ;
 	utility::downLoadOptions setDownloadOptions( const engines::engine&,tableWidget&,int,const QString& = {} ) ;
@@ -917,73 +1007,6 @@ namespace utility
 
 	bool hasDigitsOnly( const QString& e ) ;
 
-	class contextState
-	{
-	public:
-		contextState() :
-			m_noneAreRunning( true ),
-			m_finishedSuccess( false )
-		{
-		}
-		contextState( bool r ) :
-			m_noneAreRunning( r ),
-			m_finishedSuccess( false )
-		{
-		}
-		contextState( bool r,bool f ) :
-			m_noneAreRunning( r ),
-			m_finishedSuccess( f )
-		{
-		}
-		bool noneAreRunning() const
-		{
-			return m_noneAreRunning ;
-		}
-		bool finishedSuccess() const
-		{
-			return m_finishedSuccess ;
-		}
-		bool showLogWindow() const
-		{
-			return m_showLogWindow ;
-		}
-		void setShowLogWindow()
-		{
-			m_showLogWindow = true ;
-		}
-		bool clear() const
-		{
-			return m_clear ;
-		}
-		void setClear()
-		{
-			m_clear = true ;
-		}
-		void setBatchDownloaderShowHide()
-		{
-			m_batchDownloaderShowHide = true ;
-		}
-		bool batchDownloaderShowHide() const
-		{
-			return m_batchDownloaderShowHide ;
-		}
-		bool batchDownloader() const
-		{
-			return m_batchDownloader ;
-		}
-		void setBatchDownloader()
-		{
-			m_batchDownloader = true ;
-		}
-	private:
-		bool m_noneAreRunning ;
-		bool m_finishedSuccess ;
-		bool m_showLogWindow = false ;
-		bool m_clear = false ;
-		bool m_batchDownloaderShowHide = false ;
-		bool m_batchDownloader = false ;
-	} ;
-
 	enum class PlayListButtonName{ DownloadRange,PlaylistUrl,None } ;
 	template< typename Settings,typename TabName,typename Function >
 	bool showHistory( QLineEdit& lineEdit,
@@ -1103,107 +1126,119 @@ namespace utility
 		addAction( ac,forceDownload,row ) ;
 	}
 
-	template< typename Function,typename FunctionHideUnHide >
-	void appendContextMenu( QMenu& m,
-				utility::contextState c,
-				const Function& function,
-				bool showClear,
-				const FunctionHideUnHide& hideUnHide )
+	template< typename Actions >
+	void appendContextMenu( QMenu& m,Actions acts )
 	{
-		auto ac = m.addAction( QObject::tr( "Show Log Window" ) ) ;
-
-		class meaw
+		class actions
 		{
 		public:
-			meaw( utility::contextState& s,const Function& function,int e ) :
-				m_ctxState( s ),m_function( function ),m_option( e )
+			actions( Actions& acs,QMenu& m ) : m_actions( acs ),m_menu( m )
 			{
 			}
-			void operator()()
+			void add( const QString& txt,void( Actions::*method )(),bool enabled = true )
 			{
-				if( m_option == 1 ){
+				auto ac = m_menu.addAction( txt ) ;
 
-					m_ctxState.setShowLogWindow() ;
+				ac->setEnabled( enabled ) ;
 
-				}else if( m_option == 2 ) {
+				m_methods.emplace_back( ac,method ) ;
+			}
+			void exec()
+			{
+				auto ac = m_menu.exec( QCursor::pos() ) ;
 
-					m_ctxState.setBatchDownloaderShowHide() ;
-				}else{
-					m_ctxState.setClear() ;
+				for( const auto& it : m_methods ){
+
+					if( it.ac == ac ){
+
+						auto method = it.method ;
+
+						( m_actions.*method )() ;
+					}
 				}
-
-				m_function( m_ctxState ) ;
+			}
+			void hideUnhide()
+			{
+				m_actions.hideUnhide() ;
+			}
+			bool batchDownloader()
+			{
+				return m_actions.batchDownloader() ;
+			}
+			bool showClear()
+			{
+				return m_actions.showClear() ;
+			}
+			bool noneAreRunning()
+			{
+				return m_actions.noneAreRunning() ;
 			}
 		private:
-			utility::contextState& m_ctxState ;
-			const Function& m_function ;
-			int m_option ;
+			struct methods
+			{
+				methods( QAction * a,void( Actions::*m )() ) :
+					ac( a ),method( m )
+				{
+				}
+				QAction * ac ;
+				void( Actions::*method )() ;
+			} ;
+
+			std::vector< methods > m_methods ;
+			Actions& m_actions ;
+			QMenu& m_menu ;
 		} ;
 
-		QObject::connect( ac,&QAction::triggered,meaw( c,function,1 ) ) ;
+		actions ac( acts,m ) ;
 
-		hideUnHide() ;
+		ac.add( QObject::tr( "Show Log Window" ),&Actions::showLogWindow ) ;
 
-		if( c.batchDownloader() ){
+		ac.hideUnhide() ;
 
-			ac = m.addAction( QObject::tr( "Show/Hide Controls" ) ) ;
+		if( ac.batchDownloader() ){
 
-			QObject::connect( ac,&QAction::triggered,meaw( c,function,2 ) ) ;
+			ac.add( QObject::tr( "Show/Hide Controls" ),&Actions::showHide ) ;
+
+			ac.add( QObject::tr( "Paste Clipboard Url" ),&Actions::pasteClipboard ) ;
 		}
 
-		if( showClear ){
+		if( ac.showClear() ){
 
-			ac = m.addAction( QObject::tr( "Clear" ) ) ;
-
-			ac->setEnabled( c.noneAreRunning() ) ;
-
-			QObject::connect( ac,&QAction::triggered,meaw( c,function,3 ) ) ;
+			ac.add( QObject::tr( "Clear" ),&Actions::clear,ac.noneAreRunning() ) ;
 		}
 
-		m.exec( QCursor::pos() ) ;
-	}
-
-	template< typename Function >
-	void appendContextMenu( QMenu& m,utility::contextState c,const Function& function,bool showClear )
-	{
-		utility::appendContextMenu( m,c,function,showClear,[](){} ) ;
-	}
-
-	template< typename Function >
-	void appendContextMenu( QMenu& m,
-				utility::contextState c,
-				const Function& function,
-				bool showClear,
-				int row,
-				tableWidget& table )
-	{
-		utility::appendContextMenu( m,c,function,showClear,[ & ](){
-
-			utility::hideUnhideEntries( m,table,row,false ) ;
-		} ) ;
+		ac.exec() ;
 	}
 
 	class selectedAction
 	{
 	public:
-		static const char * CLEARSCREEN ;
-		static const char * CLEAROPTIONS ;
-		static const char * OPENFOLDER ;
-
+		static const char * clearScreenText()
+		{
+			return "Clear Screen" ;
+		}
+		static const char * clearOptionsText()
+		{
+			return "Clear Options" ;
+		}
+		static const char * openFolderText()
+		{
+			return "Open Download Folder" ;
+		}
 		selectedAction( QAction * ac ) : m_ac( ac )
 		{
 		}
 		bool clearOptions() const
 		{
-			return m_ac->objectName() == utility::selectedAction::CLEAROPTIONS ;
+			return m_ac->objectName() == utility::selectedAction::clearOptionsText() ;
 		}
 		bool clearScreen() const
 		{
-			return m_ac->objectName() == utility::selectedAction::CLEARSCREEN ;
+			return m_ac->objectName() == utility::selectedAction::clearScreenText() ;
 		}
 		bool openFolderPath() const
 		{
-			return m_ac->objectName() == utility::selectedAction::OPENFOLDER ;
+			return m_ac->objectName() == utility::selectedAction::openFolderText() ;
 		}
 		QString text() const
 		{

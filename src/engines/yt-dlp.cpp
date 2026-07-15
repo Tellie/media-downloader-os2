@@ -29,6 +29,7 @@
 
 #include "../configure.h"
 #include "../settings.h"
+#include "../tableWidget.h"
 
 #include "aria2c.h"
 
@@ -289,18 +290,8 @@ static QJsonObject _defaultControlStructure()
 	return obj ;
 }
 
-QJsonObject yt_dlp::init( const QString& name,
-			  const QString& configFileName,
-			  Logger& logger,
-			  const engines::enginePaths& enginePath )
+QJsonObject yt_dlp::init()
 {
-	auto m = enginePath.enginePath( configFileName ) ;
-
-	if( QFile::exists( m ) ){
-
-		return QJsonObject() ;
-	}
-
 	QJsonObject mainObj ;
 
 	utility::addJsonCmd json( mainObj ) ;
@@ -313,9 +304,9 @@ QJsonObject yt_dlp::init( const QString& name,
 				    { "amd64","yt-dlp",{ "yt-dlp" } } } } ) ;
 
 	json.add( { { "Windows" },{ { "win7x86",_NicolaasjanYtdlpFor32BitWin7(),{ _NicolaasjanYtdlpFor32BitWin7() } },
-				   { "win7amd64",_NicolaasjanYtdlpFor64BitWin7(),{ _NicolaasjanYtdlpFor64BitWin7() } },
-				   { "x86",x86Name,{ x86Name } },
-				   { "amd64",amd64,{ amd64 } } } } ) ;
+				    { "win7amd64",_NicolaasjanYtdlpFor64BitWin7(),{ _NicolaasjanYtdlpFor64BitWin7() } },
+				    { "x86",x86Name,{ x86Name } },
+				    { "amd64",amd64,{ amd64 } } } } ) ;
 
 	json.add( { { "MacOS" },{ { "x86",macos,{ macos } },
 				  { "amd64",macos,{ macos } } } } ) ;
@@ -360,7 +351,7 @@ QJsonObject yt_dlp::init( const QString& name,
 
 	mainObj.insert( "RequiredMinimumVersionOfMediaDownloader","2.2.0" ) ;
 
-	mainObj.insert( "Name",name ) ;
+	mainObj.insert( "Name","yt-dlp" ) ;
 
 	mainObj.insert( "CookieArgument","--cookies-from-browser" ) ;
 
@@ -388,17 +379,47 @@ QJsonObject yt_dlp::init( const QString& name,
 
 	mainObj.insert( "ReplaceOutputWithProgressReport",false ) ;
 
-	engines::file( m,logger ).write( mainObj ) ;
-
 	return mainObj ;
+}
+
+void yt_dlp::init( const QString& configFileName,
+		   Logger& logger,
+		   const engines::enginePaths& enginePath )
+{
+	auto m = enginePath.enginePath( configFileName ) ;
+
+	if( !QFile::exists( m ) ){
+
+		engines::file( m,logger ).write( yt_dlp::init() ) ;
+	}
+}
+
+bool yt_dlp::foundNetworkUrl( const QString& s )
+{
+	if( this->nightly() ){
+
+		auto m = engines::engine::baseEngine::engine().commandName() ;
+
+		m.replace( "-nightly","" ) ;
+
+		return s == m ;
+	}else{
+		return engines::engine::baseEngine::foundNetworkUrl( s ) ;
+	}
 }
 
 yt_dlp::yt_dlp( const engines& engines,
 		const engines::engine& engine,
-		QJsonObject& ) :
+		QJsonObject& obj ) :
 	engines::engine::baseEngine( engines.Settings(),engine,engines.processEnvironment() ),
-	m_processEnvironment( engines::engine::baseEngine::processEnvironment() )
+	m_processEnvironment( engines::engine::baseEngine::processEnvironment() ),
+	m_nightly( obj.value( "Name" ).toString().contains( "-nightly" ) )
 {
+}
+
+bool yt_dlp::nightly()
+{
+	return m_nightly ;
 }
 
 yt_dlp::~yt_dlp()
@@ -839,20 +860,132 @@ public:
 	}
 	std::vector< engines::engine::baseEngine::mediaInfo > sort()
 	{
-		std::vector< engines::engine::baseEngine::mediaInfo > m ;
+		class cmp
+		{
+		public:
+			cmp( const engines::engine::baseEngine::mediaInfo& e ) : m_mediaInfo( e )
+			{
+			}
+			bool operator<( const cmp& other ) const
+			{
+				if( this->mediaInfo().ext() == "mhtml" ){
 
-		std::sort( m_medias.begin(),m_medias.end(),std::less<int>() ) ;
+					if( other.mediaInfo().ext() == "mhtml" ){
 
-		for( auto& it : m_medias ){
+						return this->compareDimensions( other ) ;
+					}else{
+						return true ;
+					}
 
-			m.emplace_back( it.mInfo() ) ;
-		}
+				}else if( this->resolution() == "audio only" ){
 
-		return m ;
+					if( other.resolution() == "audio only" ){
+
+						return this->compareIds( other ) ;
+
+					}else if( other.mediaInfo().ext() == "mhtml" ){
+
+						return false ;
+					}else{
+						return true ;
+					}
+				}else{
+					return this->compareDimensions( other ) ;
+				}
+			}
+		private:
+			class hw
+			{
+			public:
+				hw( const QString& m )
+				{
+					if( m.contains( "x" ) ){
+
+						auto s = util::split( m,"x" ) ;
+
+						if( s.size() == 2 ){
+
+							m_height = s[ 0 ].toInt() ;
+							m_width  = s[ 1 ].toInt() ;
+						}
+
+					}else if( m.contains( "p" ) ){
+
+						m_height = util::split( m,"p" )[ 0 ].toInt() ;
+					}
+				}
+				int height() const
+				{
+					return m_height ;
+				}
+				int width() const
+				{
+					return m_width ;
+				}
+			private:
+				int m_height = 0 ;
+				int m_width = 0 ;
+			} ;
+			cmp::hw res() const
+			{
+				return this->resolution() ;
+			}
+			QString resolution() const
+			{
+				auto m = this->mediaInfo().resolution() ;
+
+				if( !m.isEmpty() ){
+
+					m = util::split( m,"\n" )[ 0 ] ;
+				}
+
+				return m ;
+			}
+			bool compareDimensions( const cmp& other ) const
+			{
+				auto t = this->res() ;
+				auto o = other.res() ;
+
+				if( t.height() < o.height() ){
+
+					return true ;
+
+				}else if( t.height() == o.height() ){
+
+					if( t.width() < o.width() ){
+
+						return true ;
+
+					}else if( t.width() == o.width() ){
+
+						return this->compareIds( other ) ;
+					}
+				}
+
+				return false ;
+			}
+			bool compareIds( const cmp& other ) const
+			{
+				const auto& a = this->mediaInfo().id() ;
+				const auto& b = other.mediaInfo().id() ;
+
+				return tableWidget::compare( a,b,true ) ;
+			}
+			const engines::engine::baseEngine::mediaInfo& mediaInfo() const
+			{
+				return m_mediaInfo ;
+			}
+			const engines::engine::baseEngine::mediaInfo& m_mediaInfo ;
+		} ;
+
+		std::sort( m_medias.begin(),m_medias.end(),[]( const cmp& l,const cmp& r ){
+
+			return l < r ;
+		} ) ;
+
+		return m_medias ;
 	}
 private:
-	enum class mediaType:int{ mhtml,videoOnly,audioOnly,audioVideo,unknown } ;
-
 	void add( const QJsonObject& obj )
 	{
 		auto url       = obj.value( "url" ).toString() ;
@@ -897,12 +1030,8 @@ private:
 			this->append( s,"asr: ",asr + "Hz",false ) ;
 		}
 
-		ytDlpMediainfo::mediaType mt = ytDlpMediainfo::mediaType::unknown ;
+		if( ext != "mhtml" ){
 
-		if( ext == "mhtml" ){
-
-			mt = ytDlpMediainfo::mediaType::mhtml ;
-		}else{
 			bool hasVideo = vcodec != "none" ;
 			bool hasAudio = acodec != "none" ;
 
@@ -913,8 +1042,6 @@ private:
 				this->append( s,"vbr: ",vbr,true ) ;
 				this->append( s,"abr: ",abr,true ) ;
 
-				mt = ytDlpMediainfo::mediaType::audioVideo ;
-
 			}else if( hasVideo && !hasAudio ){
 
 				if( !rsn.contains( "video only" ) ){
@@ -924,8 +1051,6 @@ private:
 
 				this->append( s,"vbr: ",vbr,true ) ;
 
-				mt = ytDlpMediainfo::mediaType::videoOnly ;
-
 			}else if( !hasVideo && hasAudio ){
 
 				if( !rsn.contains( "audio only" ) ){
@@ -934,8 +1059,6 @@ private:
 				}
 
 				this->append( s,"abr: ",abr,true ) ;
-
-				mt = ytDlpMediainfo::mediaType::audioOnly ;
 			}
 		}
 
@@ -956,7 +1079,7 @@ private:
 			id += "\n" + language ;
 		}
 
-		m_medias.emplace_back( mt,arr,id,ext,rsn,size,sizeRaw,ss,m_duration,m_title ) ;
+		m_medias.emplace_back( arr,id,ext,rsn,size,sizeRaw,ss,m_duration,m_title ) ;
 	}
 	QString fileSizeRaw( const QJsonObject& e )
 	{
@@ -1014,28 +1137,7 @@ private:
 		}
 	}
 
-	class str
-	{
-	public:
-		template< typename ... T >
-		str( ytDlpMediainfo::mediaType e,T&& ... t ) :
-			m_media( std::forward< T >( t ) ... ),m_type( e )
-		{
-		}
-		operator int()
-		{
-			return static_cast< int >( m_type ) ;
-		}
-		engines::engine::baseEngine::mediaInfo mInfo()
-		{
-			return std::move( m_media ) ;
-		}
-	private:
-		engines::engine::baseEngine::mediaInfo m_media ;
-		mediaType m_type ;
-	};
-
-	std::vector< str > m_medias ;
+	std::vector< engines::engine::baseEngine::mediaInfo > m_medias ;
 	Logger::locale m_locale ;
 	QString m_duration ;
 	QString m_title ;
@@ -1050,19 +1152,17 @@ yt_dlp::mediaProperties( Logger& logger,const QJsonArray& array )
 std::vector< engines::engine::baseEngine::mediaInfo >
 yt_dlp::mediaProperties( Logger& l,const QByteArray& e )
 {
-	QJsonParseError err ;
+	auto json = utility::jsonDoc( e ) ;
 
-	auto json = QJsonDocument::fromJson( e,&err ) ;
+	if( json.valid() ){
 
-	if( err.error == QJsonParseError::NoError ){
-
-		auto obj = json.object() ;
+		auto obj = json.toObject() ;
 
 		auto arr = obj.value( "formats" ).toArray() ;
 
 		return this->mediaProperties( l,arr,obj ) ;
 	}else{
-		utility::failedToParseJsonData( l,err ) ;
+		utility::failedToParseJsonData( l,json.error() ) ;
 
 		return {} ;
 	}
@@ -1089,13 +1189,28 @@ bool yt_dlp::updateVersionInfo()
 	return false ;
 }
 
+bool yt_dlp::engineRemovable()
+{
+	if( engines::engine::baseEngine::engine().name() == "yt-dlp" ){
+
+		return false ;
+	}else{
+		return true ;
+	}
+}
+
+bool yt_dlp::skipCondition( const QByteArray& e )
+{
+	return engines::engine::baseEngine::skipCondition( e ) ;
+}
+
 QByteArray yt_dlp::parseError( const QByteArray& m )
 {
 	if( m.contains( "yt-dlp: error: no such option: --remote-components" ) ){
 
 		auto s = QObject::tr( "Please Update \"%1\" To Atleast Version \"%2\"" ) ;
 
-		return s.arg( this->engine().name(),"2025.a.b" ).toUtf8() ;
+		return s.arg( this->engine().name(),"2026.06.09" ).toUtf8() ;
 	}else{
 		return {} ;
 	}
@@ -1305,7 +1420,7 @@ void yt_dlp::updateDownLoadCmdOptions( const engines::engine::baseEngine::update
 
 	engines::engine::baseEngine::updateDownLoadCmdOptions( s,e,extraOpts ) ;
 
-	if( !s.ourOptions.contains( "-f" ) && !s.ourOptions.contains( "-S" ) ){
+	if( !utils::misc::containsAny( s.ourOptions,"-f","--format","-S","--format-sort" ) ){
 
 		s.ourOptions.append( "-f" ) ;
 
@@ -1362,7 +1477,7 @@ const QByteArray& yt_dlp::yt_dlplFilter::operator()( Logger::Data& s )
 
 		if( m.startsWith( "[download] " ) ){
 
-			m_tmp = this->fileName() + "\n" + m.mid( 11 ) ;
+			m_tmp = this->fileName( s ) + "\n" + m.mid( 11 ) ;
 
 		}else if( m_engine.name().contains( "aria2c" ) ){
 
@@ -1370,14 +1485,14 @@ const QByteArray& yt_dlp::yt_dlplFilter::operator()( Logger::Data& s )
 
 			if( n != -1 ){
 
-				m_tmp = this->fileName() + "\n" + m.mid( n + 1 ) ;
+				m_tmp = this->fileName( s ) + "\n" + m.mid( n + 1 ) ;
 			}else{
-				m_tmp = this->fileName() + "\n" + m ;
+				m_tmp = this->fileName( s ) + "\n" + m ;
 			}
 
 			aria2c::trimProgressLine( m_tmp ) ;
 		}else{
-			m_tmp = this->fileName() + "\n" + m ;
+			m_tmp = this->fileName( s ) + "\n" + m ;
 		}
 
 		return m_tmp ;
@@ -1391,7 +1506,7 @@ const QByteArray& yt_dlp::yt_dlplFilter::operator()( Logger::Data& s )
 
 			for( auto it = m.rbegin() ; it != m.rend() ; it++ ){
 
-				const QByteArray& e = *it ;
+				const auto& e = it->data() ;
 
 				if( e.startsWith( "ERROR: " ) ){
 
@@ -1443,11 +1558,18 @@ yt_dlp::yt_dlplFilter::~yt_dlplFilter()
 {
 }
 
-QByteArray yt_dlp::yt_dlplFilter::fileName()
+QByteArray yt_dlp::yt_dlplFilter::fileName( const Logger::Data& s )
 {
 	if( m_fileNames.empty() ){
 
-		return {} ;
+		this->parseOutput( s.toStringList(),false ) ;
+
+		if( m_fileNames.empty() ){
+
+			return {} ;
+		}else{
+			return m_fileNames.back() ;
+		}
 	}else{
 		return m_fileNames.back() ;
 	}
@@ -1469,13 +1591,13 @@ bool yt_dlp::yt_dlplFilter::hasNewError( const std::vector< QByteArray >& errors
 	return true ;
 }
 
-const QByteArray& yt_dlp::yt_dlplFilter::parseOutput( const Logger::Data::QByteArrayList& data )
+const QByteArray& yt_dlp::yt_dlplFilter::parseOutput( const Logger::Data::QByteArrayList& data,bool checkErrors )
 {
 	for( const auto& m : data ){
 
-		const QByteArray& e = m ;
+		const auto& e = m.data() ;
 
-		if( e.startsWith( "ERROR: " ) || e.startsWith( "yt-dlp: error:" ) ){
+		if( checkErrors && ( e.startsWith( "ERROR: " ) || e.startsWith( "yt-dlp: error:" ) ) ){
 
 			if( this->hasNewError( m_errors,e ) ){
 
@@ -1504,13 +1626,27 @@ const QByteArray& yt_dlp::yt_dlplFilter::parseOutput( const Logger::Data::QByteA
 
 			this->setFileName( e.mid( e.indexOf( "] Destination: " ) + 15 ) ) ;
 		}
+		if( e.contains( "[ExtractAudio]" ) ){
+
+			m_tmp = QObject::tr( "Extracting Audio" ).toUtf8() ;
+
+			if( !m_fileNames.empty() ){
+
+				m_tmp += "\n" + m_fileNames.back() ;
+			}
+
+			return m_tmp ;
+		}
 		if( e.contains( "[VideoRemuxer] Remuxing video from" ) ){
 
 			this->setFileName( e.mid( e.indexOf( "Destination: " ) + 13 ) ) ;
 
-			auto a = QObject::tr( "Remuxing video" ) ;
+			m_tmp = QObject::tr( "Remuxing video" ).toUtf8() ;
 
-			m_tmp = a.toUtf8() + "\n" + m_fileNames.back() ;
+			if( !m_fileNames.empty() ){
+
+				m_tmp += "\n" + m_fileNames.back() ;
+			}
 
 			return m_tmp ;
 		}
@@ -1528,9 +1664,12 @@ const QByteArray& yt_dlp::yt_dlplFilter::parseOutput( const Logger::Data::QByteA
 
 			this->setFileName( m ) ;
 
-			auto a = QObject::tr( "Merging Audio and Video Together" ) ;
+			m_tmp = QObject::tr( "Merging Audio and Video Together" ).toUtf8() ;
 
-			m_tmp = a.toUtf8() + "\n" + m_fileNames.back() ;
+			if( !m_fileNames.empty() ){
+
+				m_tmp += "\n" + m_fileNames.back() ;
+			}
 
 			return m_tmp ;
 		}

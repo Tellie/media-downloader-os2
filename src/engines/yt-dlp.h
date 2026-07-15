@@ -47,8 +47,8 @@ public:
 
 		~yt_dlplFilter() override ;
 	private:
-		QByteArray fileName() ;
-		const QByteArray& parseOutput( const Logger::Data::QByteArrayList& ) ;
+		QByteArray fileName( const Logger::Data& ) ;
+		const QByteArray& parseOutput( const Logger::Data::QByteArrayList&,bool = true ) ;
 		bool hasNewError( const std::vector< QByteArray >& errors,const QByteArray& error ) ;
 		void setFileName( const QByteArray& ) ;
 		engines::engine::baseEngine::preProcessing m_preProcessing ;
@@ -72,6 +72,10 @@ public:
 
 	bool updateVersionInfo() override ;
 
+	bool engineRemovable() override ;
+
+	bool skipCondition( const QByteArray& ) override ;
+
 	QByteArray parseError( const QByteArray& ) override ;
 
 	void updateLocalOptions( QStringList& ) override ;
@@ -81,6 +85,8 @@ public:
 	void setTextEncondig( const QString&,QStringList& ) override ;
 
 	const QProcessEnvironment& processEnvironment() const override ;
+
+	bool foundNetworkUrl( const QString& s ) override ;
 
 	engines::engine::baseEngine::DataFilter Filter( int ) override ;
 
@@ -98,16 +104,19 @@ public:
 
 	void updateCmdOptions( QStringList& ) override ;
 
-	static QJsonObject init( const QString& name,
-				 const QString& configFileName,
-				 Logger& logger,
-				 const engines::enginePaths& enginePath ) ;
+	static QJsonObject init() ;
+
+	static void init( const QString& configFileName,
+			  Logger& logger,
+			  const engines::enginePaths& enginePath ) ;
 
 	yt_dlp( const engines&,const engines::engine&,QJsonObject& ) ;
 private:
+	bool nightly() ;
 	void parseMetadata( QStringList& mm,const QString& txt,const QString& original,const QString& New ) ;
 	std::vector< engines::engine::baseEngine::mediaInfo >
 	mediaProperties( Logger&,const QJsonArray&,const QJsonObject& ) ;
 	QJsonArray m_objs ;
 	QProcessEnvironment m_processEnvironment ;
+	bool m_nightly ;
 };

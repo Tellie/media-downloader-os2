@@ -73,6 +73,7 @@ void Logger::clear()
 void Logger::setMaxProcessLog( int s )
 {
 	m_processOutPuts.removeExtraLogs() ;
+
 	m_maxProcessLog = s ;
 }
 
@@ -256,10 +257,23 @@ QByteArray Logger::Data::join( const QByteArray& joiner,int id ) const
 	return m ;
 }
 
+bool Logger::Data::processOutput::extraLogs::operator()( const Logger::Data::processOutput& e ) const
+{
+	const auto& s = e.entries() ;
+
+	if( s.size() ){
+
+		return !s[ 0 ].text().startsWith( "[media-downloader] cmd: " ) ;
+	}else{
+		return false ;
+	}
+}
+
 void Logger::Data::removeExtraLogs()
 {
 	auto& v = m_processOutputs ;
-	auto m = Logger::Data::processOutput::IdLessThanZero() ;
+	auto m = Logger::Data::processOutput::extraLogs() ;
+
 	v.erase( std::remove( v.begin(),v.end(),m ),v.end() ) ;
 }
 

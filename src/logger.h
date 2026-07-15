@@ -91,16 +91,13 @@ public:
 			{
 				return m_processId ;
 			}
-			struct IdLessThanZero
+			struct extraLogs
 			{
-				bool operator()( int id ) const
-				{
-					return id < 0 ;
-				}
+				bool operator()( const Logger::Data::processOutput& ) const ;
 			} ;
-			bool operator==( const IdLessThanZero& id ) const
+			bool operator==( const extraLogs& extra ) const
 			{
-				return id( m_processId ) ;
+				return extra( *this ) ;
 			}
 			const std::vector< Logger::Data::processOutput::outputEntry >& entries() const
 			{
@@ -248,7 +245,7 @@ public:
 			}
 			const QByteArray& last() const
 			{
-				return *m_array.rbegin() ;
+				return m_array.rbegin()->data() ;
 			}
 			size_t size() const
 			{
@@ -256,7 +253,7 @@ public:
 			}
 			const QByteArray& operator[]( size_t m ) const
 			{
-				return m_array[ m ] ;
+				return m_array[ m ].data() ;
 			}
 			template< typename Function,
 				  typename std::enable_if< std::is_void< util::types::result_of< Function,QByteArray > >::value,int >::type = 0 >
@@ -264,7 +261,7 @@ public:
 			{
 				for( const auto& it : m_array ){
 
-					function( it ) ;
+					function( it.data() ) ;
 				}
 			}
 			template< typename Function,
@@ -273,7 +270,7 @@ public:
 			{
 				for( const auto& it : m_array ){
 
-					if( function( it ) ){
+					if( function( it.data() ) ){
 
 						break ;
 					}
@@ -286,11 +283,7 @@ public:
 				ByteArray( const QByteArray& s ) : m_array( &s )
 				{
 				}
-				operator const QByteArray&() const
-				{
-					return *m_array ;
-				}
-				operator QString() const
+				const QByteArray& data() const
 				{
 					return *m_array ;
 				}
@@ -661,7 +654,7 @@ private:
 	Logger::Data m_processOutPuts ;
 	bool m_updateView = false ;
 	settings& m_settings ;
-	int m_maxProcessLog ;
+	int m_maxProcessLog = 1 ;
 	int m_id = -1 ;
 
 	class meaw : public QObject
