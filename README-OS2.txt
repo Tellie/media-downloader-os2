@@ -5,7 +5,7 @@
 ****                All the money you send will go to the QT5 project                          ****
 ===================================================================================================
 
-Media-downloader v5.5.2   
+Media-downloader v5.6.2   
 
  CONTENTS OF THIS FILE
  =====================
@@ -32,7 +32,7 @@ Media-downloader v5.5.2
 1. INTRODUCTION
 ===============
 
-Welcome to media-downloader v5.5.2 port for OS/2 and Arcanoae.
+Welcome to media-downloader v5.6.2 port for OS/2 and Arcanoae.
 
 This project is a Qt/C++ based GUI frontend to CLI multiple CLI-based tools that deal with downloading online media.11
 
@@ -131,22 +131,31 @@ development, you can do so in one of the following ways:
 Compiled now with Qt v5.15.2
 
 Changelog:
-     Version 5.5.0(March 14th, 2026)
-     [FLATPAK]
-      - Bundle svtplay-dl because its dependencies are now bundled too.
-     [ALL]
-      - Show more info in batch downloader when using svtplay-dl.
-
-     Version 5.5.1(April 14th, 2026)
-     [FLATPAK]
-      - Continue to bundle svtplay-dl dependencies but unbundle svtplay-dl executable.
-     [ALL]
-      - Add GUI options to tell MD to use system binaries or to download its own binaries.
-
      Version 5.5.2(April 23rd, 2026)
      [ALL]
       - Fix a bug that made it impossible to update Deno from within the application.
       - When showing a list of available media, show audio language below format code if it is available.
+
+     Version 5.6.0(April 30th, 2026)
+     [ALL]
+      - Fix galley-dl update bug caused by upstream change of repository url.
+
+      Version 5.6.1(May 18th, 2026)
+     [WINDOWS]
+      - Bundle wget2 in Qt6 build.
+     [ALL]
+      - Add "yt-dlp-nightly" extension to make it possible to use yt-dlp nightly version.
+      - Improve support for wget2.
+
+      Version 5.6.2(June 1st, 2026)
+     [WINDOWS 7]
+      - Use quickjs-ng instead of quickjs as yt-dlp javascript runtime.
+     [FLATPAK]
+      - Use quickjs-ng instead of quickjs as yt-dlp javascript runtime.
+     [ALL]
+      - Add "MediaDownloaderAppDataPath" environment variable to make it
+        possible to change the default location of application data folder.
+      - Various changes and improvements.
 
 How to install:
 
