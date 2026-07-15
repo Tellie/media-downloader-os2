@@ -464,8 +464,6 @@ void engines::updateEngines( int id )
 	}
 
 	if( utility::platformIsWindows() ){
-
-		if( utility::platformIsLikeWindows() ){ //OS2
 		this->engineAdd( "",this->getSupportingEngineByName( "bsdtar" ),id ) ;
 	}else{
 		this->engineAdd( "",this->getSupportingEngineByName( "tar" ),id ) ;
