@@ -536,7 +536,7 @@ configure::configure( const Context& ctx ) :
 
 	m_ui.pbConfigureAddAPlugin->setMenu( this->addExtenion() ) ;
 
-	m_ui.pbConfigureRemoveAPlugin->setMenu( this->removeExtenion() ) ;
+	this->updateExtensionsRemoveList() ;
 
 	connect( &m_menu,&QMenu::triggered,[ & ]( QAction * ac ){
 
@@ -544,7 +544,7 @@ configure::configure( const Context& ctx ) :
 
 		if( !m.isEmpty() ){
 
-			auto id = utility::sequentialID() ;
+			auto id = utility::loggerID() ;
 
 			if( m == m_ctx.appName() ){
 
@@ -829,7 +829,7 @@ void configure::downloadExtension( const QString& name )
 
 	m_ctx.TabManager().basicDownloader().setAsActive() ;
 
-	auto id = utility::sequentialID() ;
+	auto id = utility::loggerID() ;
 
 	m_ctx.logger().add( QObject::tr( "Downloading" ) + ": " + url,id ) ;
 
@@ -864,7 +864,7 @@ void configure::downloadExtension( const QString& name )
 
 QString configure::setUrl( const QString& e )
 {
-	QString hash = "a0d315aaa3059b6635dde99b03a783db088840ba" ;
+	QString hash = "bb866ecef3937a9c392098e5f272f80a00153c22" ;
 
 	QString url = "https://raw.githubusercontent.com/mhogomchungu/media-downloader/" ;
 
@@ -877,27 +877,43 @@ void configure::init_done()
 
 	m_tablePresetOptions.selectLast() ;
 
-	struct updateEngines
+	class updates
 	{
-		updateEngines( const char * n,int m ) : name( n ),minVersion( m )
+	public:
+		struct entry
 		{
+			entry( const char * n,int m ) : name( n ),minVersion( m )
+			{
+			}
+			QString name ;
+			int minVersion ;
+		} ;
+		auto begin()
+		{
+			return m_updates.begin() ;
 		}
-		QString name ;
-		int minVersion ;
+		auto end()
+		{
+			return m_updates.end() ;
+		}
+		updates()
+		{
+			m_updates.emplace_back( "yt-dlp",3 ) ;
+			m_updates.emplace_back( "yt-dlp-nightly",3 ) ;
+			m_updates.emplace_back( "ytdl-patched",1 ) ;
+			m_updates.emplace_back( "gallery-dl",3 ) ;
+			m_updates.emplace_back( "svtplay-dl",2 ) ;
+			m_updates.emplace_back( "you-get",1 ) ;
+			m_updates.emplace_back( "yt-dlp-aria2c",2 ) ;
+			m_updates.emplace_back( "yt-dlp-ffmpeg",2 ) ;
+			m_updates.emplace_back( "deno",2 ) ;
+			m_updates.emplace_back( "quickjs-ng",1 ) ;
+		}
+	private:
+		std::vector< entry > m_updates ;
 	} ;
 
-	std::vector< updateEngines > updates ;
-
-	updates.emplace_back( "yt-dlp",3 ) ;
-	updates.emplace_back( "ytdl-patched",1 ) ;
-	updates.emplace_back( "gallery-dl",1 ) ;
-	updates.emplace_back( "svtplay-dl",2 ) ;
-	updates.emplace_back( "you-get",1 ) ;
-	updates.emplace_back( "yt-dlp-aria2c",2 ) ;
-	updates.emplace_back( "yt-dlp-ffmpeg",2 ) ;
-	updates.emplace_back( "deno",2 ) ;
-
-	for( const auto& it : updates ){
+	for( const auto& it : updates() ){
 
 		const auto& m = m_ctx.Engines().getEngineByName( it.name ) ;
 
@@ -946,9 +962,7 @@ void configure::setUpdateMenu()
 
 			ac->setObjectName( it.name() ) ;
 
-			auto m = it.validDownloadUrl() ;
-
-			ac->setEnabled( m && networkAccess::hasNetworkSupport() ) ;
+			ac->setEnabled( it.validDownloadUrl() ) ;
 		}
 	}
 
@@ -957,7 +971,19 @@ void configure::setUpdateMenu()
 
 void configure::downloadFromGitHub( const engines::Iterator& iter )
 {
-	m_ctx.network().download( iter ) ;
+	struct meaw : public networkAccess::report
+	{
+		void done() override
+		{
+			//?????
+		}
+		void failed() override
+		{
+			//?????
+		}
+	} ;
+
+	m_ctx.network().download( iter,util::types::type_identity< meaw >() ) ;
 }
 
 void configure::tabEntered()
@@ -1200,6 +1226,7 @@ QMenu * configure::addExtenion()
 	auto m = new QMenu( &m_ctx.mainWidget() ) ;
 
 	this->addAction( m,m_ctx,"yt-dlp","yt-dlp.json" ) ;
+	this->addAction( m,m_ctx,"yt-dlp-nightly","yt-dlp-nightly.json" ) ;
 	this->addAction( m,m_ctx,"yt-dlp-aria2c","yt-dlp-aria2c.json" ) ;
 	this->addAction( m,m_ctx,"yt-dlp-ffmpeg","yt-dlp-ffmpeg.json" ) ;
 
@@ -1278,27 +1305,28 @@ QMenu * configure::removeExtenion()
 {
 	auto m = new QMenu( &m_ctx.mainWidget() ) ;
 
-	for( const auto& it : m_ctx.Engines().enginesList() ){
+	for( const auto& engine : m_ctx.Engines().getEngines() ){
 
-		auto e = QString( it ).replace( ".json","" ) ;
+		if( !engine.supportingEngine() ){
 
-		const auto& engine = m_ctx.Engines().getEngineByName( e ) ;
+			auto ac = m->addAction( engine.name() ) ;
 
-		if( engine && !engine->supportingEngine() ){
+			ac->setObjectName( engine.name() ) ;
 
-			auto ac = m->addAction( engine->name() ) ;
+			if( engine.bundledEngine() || !engine.engineRemovable() ){
 
-			ac->setObjectName( it ) ;
-
-			ac->setEnabled( !engine->bundledEngine() ) ;
+				ac->setEnabled( false ) ;
+			}
 		}
 	}
 
 	connect( m,&QMenu::triggered,[ & ]( QAction * ac ){
 
-		auto id = utility::sequentialID() ;
+		auto id = utility::loggerID() ;
 
 		m_ctx.Engines().removeEngine( ac->objectName(),id ) ;
+
+		ac->setEnabled( false ) ;
 
 		m_ctx.TabManager().setDefaultEngines() ;
 	} ) ;
@@ -1306,9 +1334,14 @@ QMenu * configure::removeExtenion()
 	return m ;
 }
 
+void configure::updateExtensionsRemoveList()
+{
+	m_ui.pbConfigureRemoveAPlugin->setMenu( this->removeExtenion() ) ;
+}
+
 void configure::addEngine( const QByteArray& d,const QString& n )
 {
-	auto id = utility::sequentialID() ;
+	auto id = utility::loggerID() ;
 
 	auto name = m_ctx.Engines().addEngine( d,n,id ) ;
 
@@ -1325,14 +1358,14 @@ void configure::addEngine( const QByteArray& d,const QString& n )
 
 		const auto& eng = engine.value() ;
 
-		class woof : public versionInfo::idone
+		class woof : public networkAccess::report
 		{
 		public:
 			woof( const Context& ctx,const engines::engine& engine ) :
 				m_ctx( ctx ),m_engine( engine )
 			{
 			}
-			void operator()() override
+			void done() override
 			{
 				if( m_success && !m_engine.supportingEngine() ){
 
@@ -1349,11 +1382,9 @@ void configure::addEngine( const QByteArray& d,const QString& n )
 			bool m_success = true ;
 		} ;
 
-		auto& m = m_ctx.getVersionInfo() ;
-
 		auto tt = util::types::type_identity< woof >() ;
 
-		m.check( { eng,id },{ tt,m_ctx,eng },true ) ;
+		m_ctx.getVersionInfo().check( { eng,id },{ tt,m_ctx,eng },true ) ;
 	}
 }
 
@@ -1771,8 +1802,6 @@ void configure::disableAll()
 configure::presetOptions::presetOptions( const Context& ctx,settings& s ) :
 	m_path( ctx.Engines().engineDirPaths().dataPath( "presetOptions.json" ) )
 {
-	QJsonParseError err ;
-
 	QSettings& m = s.bk() ;
 
 	QByteArray data ;
@@ -1797,11 +1826,11 @@ configure::presetOptions::presetOptions( const Context& ctx,settings& s ) :
 		data = this->defaultData() ;
 	}
 
-	auto json = QJsonDocument::fromJson( data,&err ) ;
+	auto json = utility::jsonDoc( data ) ;
 
-	if( err.error == QJsonParseError::NoError ){
+	if( json.valid() ){
 
-		m_array = json.array() ;
+		m_array = json.toArray() ;
 	}
 }
 
@@ -1829,13 +1858,11 @@ void configure::presetOptions::setDefaults()
 {
 	this->clear() ;
 
-	QJsonParseError err ;
+	auto json = utility::jsonDoc( this->defaultData() ) ;
 
-	auto json = QJsonDocument::fromJson( this->defaultData(),&err ) ;
+	if( json.valid() ){
 
-	if( err.error == QJsonParseError::NoError ){
-
-		m_array = json.array() ;
+		m_array = json.toArray() ;
 	}
 }
 
@@ -2002,19 +2029,17 @@ configure::presetEntry::presetEntry( const QString& ui,const QString& op,const Q
 configure::downloadDefaultOptions::downloadDefaultOptions( const Context& ctx,const QString& name ) :
 	m_path( ctx.Engines().engineDirPaths().dataPath( name ) )
 {
-	QJsonParseError err ;
-
 	if( QFile::exists( m_path ) ){
 
 		QFile f( m_path ) ;
 
 		if( f.open( QIODevice::ReadOnly ) ){
 
-			auto json = QJsonDocument::fromJson( f.readAll(),&err ) ;
+			auto json = utility::jsonDoc( f.readAll() ) ;
 
-			if( err.error == QJsonParseError::NoError ){
+			if( json.valid() ){
 
-				m_array = json.array() ;
+				m_array = json.toArray() ;
 			}
 		}
 	}

@@ -87,6 +87,7 @@ void tabManager::initDone()
 
 	this->setDefaultEngines() ;
 
+	m_ctx.Engines().setJsRuntime() ;
 	m_about.init_done() ;
 	m_configure.init_done() ;
 	m_basicdownloader.init_done() ;
@@ -266,16 +267,15 @@ void tabManager::bgThreadClipboardHandler()
 
 tabManager& tabManager::gotEvent( const QByteArray& s )
 {
-	QJsonParseError err ;
-	auto jsonDoc = QJsonDocument::fromJson( s,&err ) ;
+	auto jsonDoc = utility::jsonDoc( s ) ;
 
-	if( err.error == QJsonParseError::NoError ){
+	if( jsonDoc.valid() ){
 
-		auto e = jsonDoc.object() ;
+		utility::event e = jsonDoc.toObject() ;
 
 		if( m_firstTimeSettingProxy ){
 
-			auto m = e.value( "--proxy" ).toString() ;
+			auto m = e.proxy() ;
 
 			if( m.isEmpty() ){
 

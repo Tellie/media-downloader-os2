@@ -18,7 +18,7 @@
  */
 
 #include <QByteArray>
-
+#include <QRegularExpression>
 #include "../engines.h"
 
 class wget : public engines::engine::baseEngine
@@ -34,6 +34,14 @@ public:
 
 	engines::engine::baseEngine::DataFilter Filter( int ) override ;
 
+	void checkExePath( const QString& ) override ;
+
+	bool skipCondition( const QByteArray& ) override ;
+
+	bool bundledEngine() override ;
+
+	const QByteArray& replaceUndesirableText( const QByteArray& ) override ;
+
 	void setProxySetting( engines::engine::baseEngine::optionsEnvironment&,QStringList&,const QString& ) override ;
 
 	QString updateTextOnCompleteDownlod( const QString& uiText,
@@ -45,16 +53,30 @@ public:
 	class wgetFilter : public engines::engine::baseEngine::filter
 	{
 	public:
-		wgetFilter( const engines::engine&,int ) ;
+		wgetFilter( const engines::engine&,int,bool,bool ) ;
 
 		const QByteArray& operator()( Logger::Data& e ) override ;
 
 		~wgetFilter() override ;
 	private:
+		bool m_isWget2_legacy ;
+		bool m_isWget2 ;
 		QByteArray m_title ;
 		QByteArray m_length ;
 		QByteArray m_tmp ;
 		engines::engine::baseEngine::preProcessing m_preProcessing ;
+		QByteArray uiText( const QByteArray&,const QByteArray&,const QByteArray& ) ;
+		bool progressLine( const QByteArray& ) ;
+		const QByteArray& processWget1( const QByteArray&,Logger::Data& ) ;
+		const QByteArray& processWget2( const QByteArray&,Logger::Data& ) ;
+		bool wget2() const ;
+		void setwget2Title( const QByteArray&,const QByteArray&,Logger::Data& ) ;
 	} ;
 private:
+	void setWgetVersion( const utils::qprocess::outPut& ) ;
+	bool wget2() const ;
+	bool m_isWget2_legacy = false ;
+	bool m_isWget2 = false ;
+	QByteArray m_tmp ;
+	QRegularExpression m_csi_regex ;
 };

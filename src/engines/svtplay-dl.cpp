@@ -397,11 +397,15 @@ void svtplay_dl::init( settings&,Logger& logger,const engines::enginePaths& engi
 	}
 }
 
-svtplay_dl::svtplay_dl( const engines& engs,const engines::engine& engine,QJsonObject& ) :
+svtplay_dl::svtplay_dl( const engines& engs,const engines::engine& engine,QJsonObject& obj ) :
 	engines::engine::baseEngine( engs.Settings(),engine,engs.processEnvironment() ),
 	m_processEnvironment( engines::engine::baseEngine::processEnvironment() )
 {
 	m_processEnvironment.insert( "PYTHONUNBUFFERED","true" ) ;
+
+	obj.insert( "ArchiveContainsFolder",utility::platformIsWindows() ) ;
+
+	obj.insert( "DownloadUrl","https://api.github.com/repos/spaam/svtplay-dl/tags" ) ;
 }
 
 void svtplay_dl::updateOutPutChannel( QProcess::ProcessChannel& s ) const
@@ -826,19 +830,13 @@ engines::metadata svtplay_dl::parseJsonDataFromGitHub( const QJsonDocument& doc 
 	}
 }
 
-bool svtplay_dl::bundledEngine()
-{
-	return false ;
-}
-
 engines::engine::baseEngine::onlineVersion svtplay_dl::versionInfoFromGithub( const QByteArray& e )
 {
-	QJsonParseError err ;
-	auto doc = QJsonDocument::fromJson( e,&err ) ;
+	auto doc = utility::jsonDoc( e ) ;
 
-	if( err.error == QJsonParseError::NoError ){
+	if( doc.valid() ){
 
-		auto s = doc.array() ;
+		auto s = doc.toArray() ;
 
 		if( s.size() ){
 
@@ -848,12 +846,7 @@ engines::engine::baseEngine::onlineVersion svtplay_dl::versionInfoFromGithub( co
 		}
 	}
 
-	return { {},{} } ;
-}
-
-QString svtplay_dl::downloadUrl()
-{
-	return "https://api.github.com/repos/spaam/svtplay-dl/tags" ;
+	return {} ;
 }
 
 const QByteArray& svtplay_dl::svtplay_dlFilter::operator()( Logger::Data& s )
@@ -864,7 +857,7 @@ const QByteArray& svtplay_dl::svtplay_dlFilter::operator()( Logger::Data& s )
 
 		for( auto it = lines.rbegin() ; it != lines.rend() ; it++ ){
 
-			const QByteArray& m = *it ;
+			const auto& m = it->data() ;
 
 			if( m.startsWith( "ERROR" ) ){
 

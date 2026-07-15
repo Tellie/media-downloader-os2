@@ -68,11 +68,11 @@ basicdownloader::basicdownloader( const Context& ctx ) :
 
 			int row = 0 ;
 
-			const auto& e = this->defaultEngine().engine ;
+			auto s = this->defaultEngine() ;
 
 			const auto& engines = m_ctx.Engines() ;
 
-			const auto& engine = utility::resolveEngine( m_hiddenTable,e,engines,row ) ;
+			const auto& engine = utility::resolveEngine( m_hiddenTable,s.engine,engines,row ) ;
 
 			engines.openUrls( m_hiddenTable,row,engine ) ;
 		}
@@ -182,7 +182,7 @@ void basicdownloader::changeDefaultEngine( int s )
 
 		m_ctx.TabManager().setDefaultEngines() ;
 	}else{
-		auto id = utility::concurrentID() ;
+		auto id = utility::loggerID() ;
 		auto m = "Error: basicdownloader::basicdownloader: Unknown Engine:" ;
 
 		m_ctx.logger().add( m + m_ui.cbEngineType->itemText( s ),id ) ;
@@ -247,10 +247,25 @@ QString basicdownloader::defaultEngineName()
 	return m_settings.defaultEngine( settings::tabName::basic,m ) ;
 }
 
-basicdownloader::engine basicdownloader::defaultEngine()
+basicdownloader::engine basicdownloader::defaultEngine( const QString& url )
 {
-	auto id = utility::concurrentID() ;
-	return { m_ctx.Engines().defaultEngine( this->defaultEngineName(),id ),id } ;
+	auto id = utility::loggerID() ;
+
+	const auto& engine = m_ctx.Engines().defaultEngine( this->defaultEngineName(),id ) ;
+
+	if( url.isEmpty() ){
+
+		return { engine,id } ;
+	}else{
+		auto name = m_ctx.TabManager().Configure().getEngineNameFromUrlManager( url ) ;
+
+		if( name.isEmpty() ){
+
+			return { engine,id } ;
+		}else{
+			return { m_ctx.Engines().defaultEngine( name,id ),id } ;
+		}
+	}
 }
 
 void basicdownloader::updateEnginesList( const QStringList& e )
@@ -408,7 +423,7 @@ void basicdownloader::download( const QString& url )
 		}
 	}
 
-	const auto& engine = this->defaultEngine() ;
+	const auto& engine = this->defaultEngine( url ) ;
 
 	m_hiddenTable.clear() ;
 
@@ -456,8 +471,6 @@ void basicdownloader::download( const basicdownloader::engine& eng,
 		const auto& engine = eng.engine ;
 
 		m_tableList.setVisible( false ) ;
-
-		m_ctx.logger().setMaxProcessLog( 1 ) ;
 
 		if( update ){
 
@@ -569,7 +582,7 @@ void basicdownloader::run( const basicdownloader::engine& eng,
 		}
 		int index()
 		{
-			return -1 ;
+			return m_id ;
 		}
 		void printOutPut( const QByteArray& e )
 		{
@@ -598,8 +611,12 @@ void basicdownloader::run( const basicdownloader::engine& eng,
 	auto& ll    = m_ctx.logger() ;
 	auto update = []( const QByteArray& ){} ;
 	auto logger = make_loggerBasicDownloader( eng.engine.filter( eng.id ),ll,update,eng.id,logs ) ;
-	auto term   = m_terminator.setUp( m_ui.pbCancel,&QPushButton::clicked,-1 ) ;
+	auto term   = m_terminator.setUp( m_ui.pbCancel,&QPushButton::clicked,eng.id ) ;
 	auto ctx    = utility::make_ctx( m_ctx,ev.move(),logger.move(),term.move(),ch ) ;
+
+	ll.clear() ;
+
+	ll.setMaxProcessLog( 1 ) ;
 
 	utility::run( args,credentials,ctx.move() ) ;
 }
@@ -669,6 +686,6 @@ void basicdownloader::textAlignmentChanged( Qt::LayoutDirection m )
 	utility::alignText( m,m_ui.label,m_ui.label_2,m_ui.labelEngineName ) ;
 }
 
-void basicdownloader::gotEvent( const QJsonObject& )
+void basicdownloader::gotEvent( const utility::event& )
 {
 }

@@ -39,6 +39,7 @@
 #include "util.hpp"
 #include "utils/threads.hpp"
 #include "utils/qprocess.hpp"
+#include "utils/miscellaneous.hpp"
 
 class tableWidget ;
 class settings ;
@@ -71,33 +72,62 @@ public:
 		template< typename Function >
 		static void readAll( const QString& filePath,Logger& logger,Function function )
 		{
-			struct result
+			class meaw
 			{
-				bool success ;
-				QByteArray data ;
-			};
-
-			utils::qthread::run( [ filePath ]()->result{
-
-				QFile f( filePath ) ;
-
-				if( f.open( QIODevice::ReadOnly ) ){
-
-					return { true,f.readAll() } ;
-				}else{
-					return { false,{} } ;
+			public:
+				class result
+				{
+				public:
+					result( QByteArray e ) : m_success( true ),m_data( std::move( e ) )
+					{
+					}
+					result() : m_success( false )
+					{
+					}
+					bool success()
+					{
+						return m_success ;
+					}
+					QByteArray data()
+					{
+						return std::move( m_data ) ;
+					}
+				private:
+					bool m_success ;
+					QByteArray m_data ;
+				} ;
+				meaw( const QString& file,Function f,Logger& l ) :
+					m_filePath( file ),m_function( std::move( f ) ),m_logger( l )
+				{
 				}
+				result bg()
+				{
+					QFile f( m_filePath ) ;
 
-			},[ &logger,filePath,function = std::move( function ) ]( result r ){
+					if( f.open( QIODevice::ReadOnly ) ){
 
-				if( r.success ){
-
-					function( true,r.data ) ;
-				}else{
-					engines::file( filePath,logger ).failToOpenForReading() ;
-					function( false,r.data ) ;
+						return f.readAll() ;
+					}else{
+						return {} ;
+					}
 				}
-			} ) ;
+				void fg( result r )
+				{
+					if( r.success() ){
+
+						m_function( true,r.data() ) ;
+					}else{
+						engines::file( m_filePath,m_logger ).failToOpenForReading() ;
+						m_function( false,r.data() ) ;
+					}
+				}
+			private:
+				QString m_filePath ;
+				Function m_function ;
+				Logger& m_logger ;
+			} ;
+
+			utils::qthread::run( meaw( filePath,std::move( function ),logger ) ) ;
 		}
 	private:
 		void failToOpenForReading() ;
@@ -204,36 +234,36 @@ public:
 		}
 		QString tmp( const QString& e ) const
 		{
-			return _add( m_tmp,e ) ;
+			return this->add( m_tmp,e ) ;
 		}
 		QString updatePath( const QString& e ) const
 		{
-			return _add( m_updatePath,e ) ;
+			return this->add( m_updatePath,e ) ;
 		}
 		QString dataPath( const QString& e ) const
 		{
-			return _add( m_dataPath,e ) ;
+			return this->add( m_dataPath,e ) ;
 		}
 		QString subscriptionsArchiveFilePath() const
 		{
-			return _add( m_dataPath,"subscriptions_archive_file.txt" ) ;
+			return this->add( m_dataPath,"subscriptions_archive_file.txt" ) ;
 		}
 		QString binPath( const QString& e ) const
 		{
-			return _add( m_binPath,e ) ;
+			return this->add( m_binPath,e ) ;
 		}
 		QString themePath() const
 		{
-			return _add( m_dataPath,"themes" ) ;
+			return this->add( m_dataPath,"themes" ) ;
 		}
 		QString enginePath( const QString& e ) const
 		{
-			return _add( m_enginePath,e ) ;
+			return this->add( m_enginePath,e ) ;
 		}
 		QString socketPath() ;
 		void confirmPaths( Logger& ) const ;
 	private:
-		QString _add( const QString& basePath,const QString& toAdd ) const
+		QString add( const QString& basePath,const QString& toAdd ) const
 		{
 			if( basePath.endsWith( "/" ) ){
 
@@ -798,6 +828,10 @@ public:
 
 			virtual bool engineRemovable() ;
 
+			virtual void checkExePath( const QString& ) ;
+
+			virtual const QByteArray& replaceUndesirableText( const QByteArray& ) ;
+
 			class removeFilesStatus
 			{
 			public:
@@ -907,6 +941,13 @@ public:
 
 			struct onlineVersion
 			{
+				onlineVersion()
+				{
+				}
+				onlineVersion( const QString& a,const QString& b ) :
+					stringVersion( a ),version( b )
+				{
+				}
 				QString stringVersion ;
 				util::version version ;
 				onlineVersion move()
@@ -919,6 +960,8 @@ public:
 						 const util::version& ) ;
 
 			virtual engines::engine::baseEngine::onlineVersion versionInfoFromGithub( const QByteArray& ) ;
+
+			engines::engine::baseEngine::onlineVersion versionInfoFromGithub( const QJsonDocument& ) ;
 
 			virtual bool foundNetworkUrl( const QString& ) ;
 
@@ -1034,7 +1077,7 @@ public:
 		{
 		public:
 			jsRuntimeInstalled( const engines& ) ;
-			jsRuntimeInstalled( const engines&,const char * ) ;
+			jsRuntimeInstalled( const engines&,const utils::misc::string& ) ;
 			const QString& name() const
 			{
 				return m_name ;
@@ -1057,28 +1100,39 @@ public:
 			{
 				for( const auto& it : list ){
 
-					auto m = e.findExecutable( it.exe,s ) ;
+					auto m = e.findExecutable( it.exe(),s ) ;
 
 					if( !m.isEmpty() ){
 
-						m_name    = it.name ;
-						m_exeName = it.exe ;
+						m_name    = it.name() ;
+						m_exeName = it.exe() ;
 						m_exePath = m ;
 
 						break ;
 					}
 				}
 			}
-			struct entry
+			class entry
 			{
-				entry( const char * n ) : name( n ),exe( n )
+			public:
+				entry( utils::misc::string n,utils::misc::string e ) :
+					m_name( n ),m_exe( e )
 				{
 				}
-				entry( const char * n,const char * e ) : name( n ),exe( e )
+				entry( utils::misc::string n ) : m_name( n ),m_exe( n )
 				{
 				}
-				const char * name ;
-				const char * exe ;
+				const utils::misc::string& name() const
+				{
+					return m_name ;
+				}
+				const utils::misc::string& exe() const
+				{
+					return m_exe ;
+				}
+			private:
+				utils::misc::string m_name ;
+				utils::misc::string m_exe ;
 			} ;
 			QString m_name ;
 			QString m_exeName ;
@@ -1181,17 +1235,6 @@ public:
 			}
 		}
 
-		template< typename backend,typename ... Args >
-		void setBackend( const engines& engines,Args&& ... args )
-		{
-			m_engine = std::make_unique< backend >( engines,
-								*this,
-								m_jsonObject,
-								std::forward< Args >( args ) ... ) ;
-
-			this->updateOptions() ;
-		}
-
 		QString updateCmdPath( Logger&,const QString& e ) const ;
 
 		const QString& commandName() const ;
@@ -1290,6 +1333,10 @@ public:
 		{
 			return m_engine->mediaProperties( l,e ) ;
 		}
+		const QByteArray& replaceUndesirableText( const QByteArray& e ) const
+		{
+			return m_engine->replaceUndesirableText( e ) ;
+		}
 		void updateGetPlaylistCmdOptions( QStringList& e ) const
 		{
 			m_engine->updateGetPlaylistCmdOptions( e ) ;
@@ -1353,6 +1400,10 @@ public:
 		QStringList convertArgToEnv( engines::engine::baseEngine::optionsEnvironment& e,const QStringList& s ) const
 		{
 			return m_engine->convertArgToEnv( e,s ) ;
+		}
+		void checkExePath( const QString& e ) const
+		{
+			return m_engine->checkExePath( e ) ;
 		}
 		QString downloadFolder( const QString& e ) const
 		{
@@ -1531,11 +1582,11 @@ public:
 		{
 			return m_broken ;
 		}
+		void setJsRuntime() ;
 	private:
+		std::unique_ptr< engines::engine::baseEngine > setEngine( const engines& ) ;
 		QJsonObject getOpts( const util::Json&,settings& ) const ;
 		void setPermissions( const QString& ) const ;
-		void updateOptions() ;
-		void setJsRuntime() ;
 		QStringList toStringList( const QJsonValue&,bool = false ) const ;
 		QJsonObject getCmd( const QJsonObject&,const QString& ) ;
 
@@ -1578,11 +1629,12 @@ public:
 
 		mutable util::version m_version ;
 		QJsonObject m_jsonObject ;
+		bool m_likeYtDlp ;
+		QString m_name ;
 		std::unique_ptr< engines::engine::baseEngine > m_engine ;
 		int m_line ;
 		int m_position ;
 		bool m_valid ;
-		bool m_likeYtDlp ;
 		bool m_autoUpdate ;
 		bool m_canDownloadPlaylist ;
 		bool m_supportingEngine ;
@@ -1591,7 +1643,6 @@ public:
 		bool m_replaceOutputWithProgressReport ;
 		mutable bool m_broken = false ;
 		QString m_versionArgument ;
-		QString m_name ;
 		QString m_configVersion ;
 		QString m_commandName ;
 		QString m_userName ;
@@ -1624,7 +1675,7 @@ public:
 	settings& Settings() const ;
 	QString findExecutable( const QString& exeName,bool searchFromBeginning = true ) const ;
 	const QProcessEnvironment& processEnvironment() const ;
-	QString addEngine( const QByteArray& data,const QString& path,int ) ;
+	QString addEngine( const QByteArray& data,const QString& extensionName,int ) ;
 	void removeEngine( const QString& name,int ) ;
 	QStringList enginesList() const ;
 	const engine& defaultEngine( const QString&,int ) const ;
@@ -1634,10 +1685,132 @@ public:
 	void openUrls( tableWidget&,int row,const engines::engine& ) const ;
 	void openUrls( const QString& path ) const ;
 	const QString& defaultEngineName() const ;
+	void setJsRuntime() ;
+	class EnginesList
+	{
+	public:
+		class engine
+		{
+		public:
+			engine()
+			{
+			}
+			template< typename ... Args >
+			engine( Args&& ... args ) :
+				m_engine( std::make_unique< engines::engine >( std::forward< Args >( args ) ... ) )
+			{
+			}
+			const engines::engine& get() const
+			{
+				return *m_engine ;
+			}
+			engines::engine& get()
+			{
+				return *m_engine ;
+			}
+			const engines::engine * operator->() const
+			{
+				return m_engine.get() ;
+			}
+			engines::engine * operator->()
+			{
+				return m_engine.get() ;
+			}
+			engines::EnginesList::engine move()
+			{
+				return std::move( *this ) ;
+			}
+			bool valid() const
+			{
+				return m_engine.get() != nullptr ;
+			}
+		private:
+			std::unique_ptr< engines::engine > m_engine ;
+		} ;
+		class citer
+		{
+		public:
+			citer( size_t s,const std::vector< engines::EnginesList::engine >& b ) :
+				m_pos( s ),m_backends( b )
+			{
+			}
+			const engines::engine& operator*() const
+			{
+				return m_backends[ m_pos ].get() ;
+			}
+			void operator++()
+			{
+				++m_pos ;
+			}
+			bool operator!=( const engines::EnginesList::citer& other ) const
+			{
+				return m_pos != other.m_pos ;
+			}
+		private:
+			size_t m_pos ;
+			const std::vector< engines::EnginesList::engine >& m_backends ;
+		} ;
+		class iter
+		{
+		public:
+			iter( size_t s,std::vector< engines::EnginesList::engine >& b ) :
+				m_pos( s ),m_backends( b )
+			{
+			}
+			engines::engine& operator*()
+			{
+				return m_backends[ m_pos ].get() ;
+			}
+			void operator++()
+			{
+				++m_pos ;
+			}
+			bool operator!=( const engines::EnginesList::iter& other ) const
+			{
+				return m_pos != other.m_pos ;
+			}
+		private:
+			size_t m_pos ;
+			std::vector< engines::EnginesList::engine >& m_backends ;
+		} ;
+		void clear()
+		{
+			m_backends.clear() ;
+		}
+		void sort() ;
+		size_t size() const
+		{
+			return m_backends.size() ;
+		}
+		void add( engines::EnginesList::engine m ) ;
+		void remove( const QString& name ) ;
+		const engines::engine& operator[]( size_t s ) const
+		{
+			return m_backends[ s ].get() ;
+		}
+		engines::EnginesList::citer begin() const
+		{
+			return { 0,m_backends } ;
+		}
+		engines::EnginesList::citer end() const
+		{
+			return { m_backends.size(),m_backends } ;
+		}
+		engines::EnginesList::iter begin()
+		{
+			return { 0,m_backends } ;
+		}
+		engines::EnginesList::iter end()
+		{
+			return { m_backends.size(),m_backends } ;
+		}
+	private:
+		std::vector< engines::EnginesList::engine > m_backends ;
+	} ;
 	class Iterator
 	{
 	public:
-		Iterator( const std::vector< engines::engine >& engines,int id ) :
+		Iterator( const engines::EnginesList& engines,int id ) :
 			m_maxCounter( engines.size() ),
 			m_engines( &engines ),
 			m_id( id )
@@ -1663,6 +1836,10 @@ public:
 			m.m_counter++ ;
 			return m ;
 		}
+		void setNext()
+		{
+			m_counter++ ;
+		}
 		const engines::engine& engine() const
 		{
 			if( m_engine ){
@@ -1684,11 +1861,11 @@ public:
 		size_t m_counter = 0 ;
 		size_t m_maxCounter ;
 		const engines::engine * m_engine = nullptr ;
-		const std::vector< engines::engine > * m_engines = nullptr ;
+		const engines::EnginesList * m_engines = nullptr ;
 		int m_id ;
 	} ;
 
-	const std::vector< engine >& getEngines() const ;
+	const engines::EnginesList& getEngines() const ;
 	engines::Iterator getEnginesIterator() const ;
 	void setDefaultEngine( const QString& ) ;
 	void showBanner() ;
@@ -1747,17 +1924,21 @@ public:
 	}
 	void setNetworkProxy( engines::proxySettings,bool,networkAccess& ) ;
 private:
-	void updateEngines( bool,int ) ;
-	util::result< engines::engine > getEngineByPath( const QString& ) const ;
-	util::result< engines::engine > getSupportingEngineByName( const QString& ) const ;
+	bool addEngine( const QString&,int ) ;
+	void removeEngineFromList( const QString&,int ) ;
+	void updateEngines( int ) ;
+	engines::EnginesList::engine getEngineByPath( const QString& ) const ;
+	engines::EnginesList::engine getSupportingEngineByName( const QString& ) const ;
 	util::result_ref< const engines::engine& > getCompleteEngineByPath( const QString& ) const ;
-	void engineAdd( const QString&,util::result< engines::engine >,int ) ;
+	bool engineAdd( const QString&,engines::EnginesList::engine,int ) ;
 	QString findExecutable( const QString&,const QStringList&,bool searchFromBeginning = true ) const ;
+	QString findOtherExecutable( const QString& e,const QStringList& p,bool s ) const ;
+	QString findWinExecutable( const QString&,const QStringList&,bool searchFromBeginning = true ) const ;
 	QProcessEnvironment getEnvPaths() const ;
 	QStringList dirEntries( const QString& ) const ;
 	Logger& m_logger ;
 	settings& m_settings ;
-	std::vector< engine > m_backends ;
+	engines::EnginesList m_backends ;
 	const engines::enginePaths& m_enginePaths ;
 	QProcessEnvironment m_processEnvironment ;
 	engines::proxySettings m_networkProxy ;

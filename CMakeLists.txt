@@ -14,7 +14,7 @@ set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-set( PGR_VERSION "5.5.2" )
+set( PGR_VERSION "5.6.2" )
 set( COPYRIGHT_YEARS "2021-2026" )
 
 INCLUDE(GNUInstallDirs)
@@ -114,6 +114,7 @@ set(SRC
     src/engines/getsauce.cpp
     src/engines/gallery-dl.cpp
     src/engines/quickjs.cpp
+    src/engines/quickjs_ng.cpp
     src/engines/deno.cpp
     src/engines/bun.cpp)
 

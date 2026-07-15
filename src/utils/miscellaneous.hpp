@@ -20,10 +20,72 @@
 #pragma once
 
 #include <memory>
+#include <cstring>
 #include <QtGlobal>
 
-namespace utils{
-	namespace misc{
+namespace utils
+{
+	namespace misc
+	{
+		class string
+		{
+		public:
+			template< size_t N >
+			string( const char ( &str )[ N ] ) : m_str( str ),m_size( N - 1 )
+			{
+			}
+			size_t size() const
+			{
+				return m_size ;
+			}
+			const char * data() const
+			{
+				return m_str ;
+			}
+			template< size_t N >
+			bool operator==( const char ( &s )[ N ] ) const
+			{
+				if( N == this->size() ){
+
+					return std::strcmp( this->data(),s ) == 0 ;
+				}else{
+					return false ;
+				}
+			}
+			bool operator==( const utils::misc::string& other ) const
+			{
+				if( this->size() == other.size() ){
+
+					return std::strcmp( this->data(),other.data() ) == 0 ;
+				}else{
+					return false ;
+				}
+			}
+			operator QString() const
+			{
+				return m_str ;
+			}
+		private:
+			const char * m_str ;
+			size_t m_size ;
+		};
+
+		template< typename Value,typename Opt >
+		bool equalsAny( const Value& v,const Opt& opt )
+		{
+			return v == opt ;
+		}
+
+		template< typename Value,typename Opt,typename ... Opts >
+		bool equalsAny( const Value& v,const Opt& opt,Opts&& ... opts )
+		{
+			if( v == opt ){
+
+				return true ;
+			}else{
+				return misc::equalsAny( v,std::forward< Opts >( opts ) ... ) ;
+			}
+		}
 
 		template< typename Value,typename Opt >
 		bool containsAny( const Value& v,const Opt& opt )
@@ -103,6 +165,10 @@ namespace utils{
 			}
 			unique_ptr()
 			{
+			}
+			void reset()
+			{
+				m_handle.reset( nullptr ) ;
 			}
 			T& operator*() const
 			{
