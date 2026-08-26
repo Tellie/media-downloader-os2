@@ -351,7 +351,7 @@ engines::EnginesList::engine engines::getSupportingEngineByName( const QString& 
 		obj.insert( "VersionArgument","--version" ) ;
 		obj.insert( "VersionStringLine",0 ) ;
 
-		auto m = utility::platformIsLinux() ? 3 : 1 ;
+		auto m = utility::platformIsLinux() || utility::platformisOS2() ? 3 : 1 ;
 
 		obj.insert( "VersionStringPosition",m ) ;
 
