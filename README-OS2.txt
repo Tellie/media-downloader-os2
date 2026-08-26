@@ -5,7 +5,7 @@
 ****                All the money you send will go to the QT5 project                          ****
 ===================================================================================================
 
-Media-downloader v5.6.2   
+Media-downloader v5.6.5   
 
  CONTENTS OF THIS FILE
  =====================
@@ -32,7 +32,7 @@ Media-downloader v5.6.2
 1. INTRODUCTION
 ===============
 
-Welcome to media-downloader v5.6.2 port for OS/2 and Arcanoae.
+Welcome to media-downloader v5.6.5 port for OS/2 and Arcanoae.
 
 This project is a Qt/C++ based GUI frontend to CLI multiple CLI-based tools that deal with downloading online media.11
 
@@ -156,6 +156,23 @@ Changelog:
       - Add "MediaDownloaderAppDataPath" environment variable to make it
         possible to change the default location of application data folder.
       - Various changes and improvements.
+
+      Version 5.6.3(June 18th, 2026)
+     [WINDOWS 7]
+      - Fix a bug that causes quickjs-ng to not be detected.
+     [WINDOWS]
+      - Show more info when showing download progress when updating MD.
+     [MACOS]
+      - Save new preset options as soon as user press "save" button.
+
+     Version 5.6.4(August 2nd, 2026)
+     [ALL]
+      - Update Ukranian language.
+      - Fix a bug that diables deno auto updating option when the save button is clicked.
+
+      Version 5.6.5(August 7th, 2026)
+     [ALL]
+      - Fix preset youtube options not working caused by youtube videos not having typical video dimensions.
 
 How to install:
 
