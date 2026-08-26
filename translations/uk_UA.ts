@@ -1136,11 +1136,11 @@ Exampe 2: ${gateway}:8080</source>
     </message>
     <message>
         <source>Paste Clipboard Url</source>
-        <translation type="unfinished"></translation>
+        <translation>Вставити URL із буфера</translation>
     </message>
     <message>
         <source>Extracting Audio</source>
-        <translation type="unfinished"></translation>
+        <translation>Витягування аудіо</translation>
     </message>
 </context>
 <context>
